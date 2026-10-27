@@ -2,124 +2,27 @@
 
 <?= $this->section('content') ?>
 
-<?php
-$statusClasses = [
-    'agendado'           => 'border-blue-300 bg-blue-50 text-blue-800',
-    'confirmado'         => 'border-green-300 bg-green-50 text-green-800',
-    'realizado'          => 'border-emerald-300 bg-emerald-50 text-emerald-800',
-    'falta_paciente'     => 'border-red-300 bg-red-50 text-red-800',
-    'falta_profissional' => 'border-orange-300 bg-orange-50 text-orange-800',
-    'cancelado'          => 'border-gray-300 bg-gray-50 text-gray-500',
-];
-
-$slotFor = static function (string $datetime): string {
-    $timestamp = strtotime($datetime);
-    if ($timestamp === false) {
-        return '';
-    }
-
-    $minutes = ((int) date('G', $timestamp) * 60) + (int) date('i', $timestamp);
-    $floored = (int) floor($minutes / 30) * 30;
-    $hour    = (int) floor($floored / 60);
-    $minute  = $floored % 60;
-
-    return str_pad((string) $hour, 2, '0', STR_PAD_LEFT) . ':' . str_pad((string) $minute, 2, '0', STR_PAD_LEFT);
-};
-
-$bySlot = [];
-foreach ($appointments as $appointment) {
-    $slot = $slotFor((string) ($appointment['start_time'] ?? ''));
-    if ($slot === '') {
-        continue;
-    }
-
-    $bySlot[$slot][(int) $appointment['professional_id']][] = $appointment;
-}
-
-$columnCount  = max(1, count($professionals));
-$gridTemplate = '72px ' . implode(' ', array_fill(0, $columnCount, 'minmax(170px, 1fr)'));
-
-$prevDate = date('Y-m-d', strtotime($date . ' -1 day'));
-$nextDate = date('Y-m-d', strtotime($date . ' +1 day'));
-?>
-
 <style>[x-cloak]{display:none!important}</style>
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/locales/pt-br.global.min.js"></script>
 
-<div x-data="agendaApp()" x-cloak>
-    <div class="space-y-6">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h2 class="text-xl font-semibold text-gray-800">Agenda</h2>
-                <p class="mt-1 text-sm text-gray-500">Grade de atendimentos por profissional.</p>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-2">
-                <a href="<?= site_url('agenda') ?>?date=<?= urlencode($prevDate) ?>" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Anterior</a>
-                <input type="date" value="<?= esc($date) ?>" onchange="window.location.href='<?= site_url('agenda') ?>?date=' + this.value" class="rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
-                <a href="<?= site_url('agenda') ?>?date=<?= urlencode($nextDate) ?>" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Próximo</a>
-                <a href="<?= site_url('agenda') ?>" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Hoje</a>
-                <button type="button" @click="openModal()" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Agendamento
-                </button>
-            </div>
+<div x-data="agendaApp()" x-cloak class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h2 class="text-xl font-semibold text-gray-800">Agenda</h2>
+            <p class="mt-1 text-sm text-gray-500">Visualize por mês, semana ou dia e arraste os cards para reagendar.</p>
         </div>
-
-        <?php if ($professionals === []): ?>
-            <div class="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white px-6 py-16 text-center">
-                <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                </div>
-                <h3 class="text-lg font-semibold text-gray-800">Nenhum profissional disponível</h3>
-                <p class="mt-1 text-sm text-gray-500">Cadastre um usuário profissional para montar a grade da agenda.</p>
-            </div>
-        <?php else: ?>
-            <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div class="overflow-x-auto">
-                    <div class="min-w-[960px]">
-                        <div class="grid border-b border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600" style="grid-template-columns: <?= $gridTemplate ?>">
-                            <div class="flex items-center justify-center border-r border-gray-200 px-2 py-3">Horário</div>
-                            <?php foreach ($professionals as $professional): ?>
-                                <div class="flex items-center justify-center border-r border-gray-200 px-2 py-3"><?= esc($professional['name']) ?></div>
-                            <?php endforeach; ?>
-                        </div>
-
-
-                        <?php foreach ($timeSlots as $slot): ?>
-                            <div class="grid border-b border-gray-100" style="grid-template-columns: <?= $gridTemplate ?>">
-                                <div class="border-r border-gray-200 bg-gray-50 px-2 py-1 text-right text-xs font-medium text-gray-500"><?= esc($slot) ?></div>
-                                <?php foreach ($professionals as $professional): $professionalId = (int) $professional['id']; ?>
-                                    <div class="agenda-cell min-h-[3.5rem] space-y-1 border-r border-gray-100 p-1" data-professional-id="<?= $professionalId ?>" data-slot="<?= esc($slot) ?>">
-                                        <?php foreach ($bySlot[$slot][$professionalId] ?? [] as $appointment): ?>
-                                            <div
-                                                class="agenda-card cursor-move rounded-md border px-2 py-1 text-xs shadow-sm <?= esc($statusClasses[$appointment['status']] ?? $statusClasses['agendado']) ?>"
-                                                data-id="<?= (int) $appointment['id'] ?>"
-                                                data-start="<?= esc($appointment['start_time']) ?>"
-                                                data-end="<?= esc($appointment['end_time']) ?>"
-                                                title="Arraste para mover"
-                                            >
-                                                <div class="flex items-start justify-between gap-2">
-                                                    <span class="font-semibold leading-tight"><?= esc($appointment['patient_name'] ?? '—') ?></span>
-                                                    <span class="whitespace-nowrap text-[11px] opacity-75"><?= esc(date('H:i', strtotime((string) $appointment['start_time']))) ?>–<?= esc(date('H:i', strtotime((string) $appointment['end_time']))) ?></span>
-                                                </div>
-                                                <div class="mt-0.5 leading-tight opacity-90"><?= esc($statusOptions[$appointment['status']] ?? '') ?></div>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-            </div>
-        <?php endif; ?>
+        <button type="button" @click="openModal()" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+            + Agendamento
+        </button>
     </div>
 
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="p-4">
+            <div id="calendar"></div>
+        </div>
+    </div>
 
     <!-- Modal: Novo Agendamento -->
     <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @keydown.escape.window="open = false">
@@ -191,7 +94,6 @@ $nextDate = date('Y-m-d', strtotime($date . ' +1 day'));
                         </div>
                     </div>
 
-
                     <div>
                         <label for="status" class="mb-1 block text-sm font-medium text-gray-700">Status</label>
                         <select id="status" x-model="form.status" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
@@ -227,7 +129,6 @@ $nextDate = date('Y-m-d', strtotime($date . ' +1 day'));
         </div>
     </div>
 
-
     <!-- Modal: Conflito de horário -->
     <div x-show="conflict.open" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
         <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl" @click.outside="conflict.open = false">
@@ -253,7 +154,6 @@ $nextDate = date('Y-m-d', strtotime($date . ' +1 day'));
         </div>
     </div>
 </div>
-
 
 <script>
 function agendaApp() {
@@ -375,27 +275,109 @@ function agendaApp() {
         },
     };
 }
+</script>
 
+<script>
 document.addEventListener('DOMContentLoaded', () => {
-    if (typeof Sortable === 'undefined') {
+    if (typeof FullCalendar === 'undefined') {
         return;
     }
 
-    document.querySelectorAll('.agenda-cell').forEach((cell) => {
-        new Sortable(cell, {
-            group: 'agenda',
-            animation: 150,
-            ghostClass: 'opacity-40',
-            chosenClass: 'ring-2 ring-blue-400',
-            onEnd(event) {
-                console.log(
-                    'Card #' + event.item.dataset.id,
-                    'movido para profissional', event.to.dataset.professionalId,
-                    'no horario', event.to.dataset.slot,
-                );
-            },
-        });
+    let csrfToken = <?= json_encode(csrf_hash()) ?>;
+    const calendarEl = document.getElementById('calendar');
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'pt-br',
+        timeZone: 'UTC',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        editable: true,
+        eventDurationEditable: false,
+        events: {
+            url: <?= json_encode(site_url('agenda/events')) ?>,
+            method: 'GET',
+            failure: () => alert('Falha ao carregar os agendamentos.')
+        },
+        eventDrop: (info) => handleEventDrop(info),
     });
+
+    calendar.render();
+
+    async function handleEventDrop(info) {
+        const payload = {
+            id: info.event.id,
+            start: info.event.startStr,
+            end: info.event.endStr || info.event.startStr,
+        };
+
+        try {
+            const result = await postUpdate(payload);
+
+            if (result.data.csrf_hash) {
+                csrfToken = result.data.csrf_hash;
+            }
+
+            if (result.status === 409) {
+                const proceed = confirm('Conflito de horário para o profissional. Deseja continuar mesmo assim?');
+
+                if (! proceed) {
+                    info.revert();
+                    return;
+                }
+
+                const forced = await postUpdate({
+                    id: payload.id,
+                    start: payload.start,
+                    end: payload.end,
+                    force_override: true,
+                });
+
+                if (forced.data.csrf_hash) {
+                    csrfToken = forced.data.csrf_hash;
+                }
+
+                if (forced.status !== 200) {
+                    info.revert();
+                    alert(forced.data.message || 'Não foi possível mover o agendamento.');
+                }
+
+                return;
+            }
+
+            if (result.status !== 200) {
+                info.revert();
+                alert(result.data.message || 'Não foi possível mover o agendamento.');
+            }
+        } catch (error) {
+            info.revert();
+            alert('Erro ao mover o agendamento.');
+        }
+    }
+
+    async function postUpdate(payload) {
+        const response = await fetch(<?= json_encode(site_url('agenda/update-schedule')) ?>, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify(payload),
+        });
+
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (error) {
+            // Resposta sem corpo JSON.
+        }
+
+        return { status: response.status, data };
+    }
 });
 </script>
 

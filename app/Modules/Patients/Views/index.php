@@ -123,7 +123,7 @@ $formatDate = static function (?string $date): string {
     </div>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const token = <?= json_encode(csrf_token()) ?>;
+        let token = <?= json_encode(csrf_hash()) ?>;
         const baseUrl = <?= json_encode(site_url('patients/toggle-status')) ?>;
 
         document.querySelectorAll('[data-toggle-status]').forEach((button) => {
@@ -142,6 +142,10 @@ $formatDate = static function (?string $date): string {
                     });
 
                     const data = await response.json();
+
+                    if (data.csrf_hash) {
+                        token = data.csrf_hash;
+                    }
 
                     if (! data.success) {
                         alert(data.message || 'Erro ao atualizar o status.');

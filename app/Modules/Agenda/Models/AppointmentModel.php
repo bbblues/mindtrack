@@ -102,6 +102,29 @@ class AppointmentModel extends BaseModel
     }
 
     /**
+     * Lista os agendamentos que fazem interseccao com o intervalo informado,
+     * incluindo os nomes de paciente e profissional para exibicao no FullCalendar.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function forRange(?string $start = null, ?string $end = null): array
+    {
+        $builder = $this->newQuery()
+            ->select($this->table . '.*, patients.name AS patient_name, users.name AS professional_name')
+            ->join('patients', 'patients.id = ' . $this->table . '.patient_id', 'left')
+            ->join('users', 'users.id = ' . $this->table . '.professional_id', 'left')
+            ->orderBy($this->table . '.start_time', 'ASC');
+
+        if ($start !== null && $end !== null) {
+            $builder
+                ->where($this->table . '.start_time <', $end)
+                ->where($this->table . '.end_time >', $start);
+        }
+
+        return $builder->get()->getResultArray();
+    }
+
+    /**
      * Busca agendamentos conflitantes para um profissional no intervalo
      * [startTime, endTime). Agendamentos cancelados nao bloqueiam.
      *

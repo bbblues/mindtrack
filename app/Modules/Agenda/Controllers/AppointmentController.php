@@ -49,11 +49,9 @@ class AppointmentController extends BaseController
             'title'           => 'Agenda',
             'date'            => $date,
             'professionals'   => $this->userModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll(),
-            'appointments'    => $this->appointmentModel->forDate($date),
             'patients'        => $this->patientModel->orderBy('name', 'ASC')->findAll(),
             'units'           => $this->unitModel->orderBy('name', 'ASC')->findAll(),
             'rooms'           => $this->roomModel->orderBy('name', 'ASC')->findAll(),
-            'timeSlots'       => $this->buildTimeSlots('07:00', '20:00', 30),
             'defaultDuration' => $this->defaultDurationMinutes(),
             'statusOptions'   => $this->statusOptions(),
         ]);
@@ -159,6 +157,90 @@ class AppointmentController extends BaseController
         ]);
     }
 
+    /**
+     * Retorna os agendamentos no formato de eventos do FullCalendar.
+     */
+    public function events(): ResponseInterface
+    {
+        $start = $this->normalizeDateTime($this->request->getGet('start'));
+        $end   = $this->normalizeDateTime($this->request->getGet('end'));
+
+        $appointments = $this->appointmentModel->forRange($start, $end);
+
+        $events = [];
+
+        foreach ($appointments as $appointment) {
+            $events[] = [
+                'id'    => (int) $appointment['id'],
+                'title' => $appointment['patient_name'] ?? 'Paciente',
+                'start' => $this->toIso8601((string) ($appointment['start_time'] ?? '')),
+                'end'   => $this->toIso8601((string) ($appointment['end_time'] ?? '')),
+                'color' => $this->statusColor((string) ($appointment['status'] ?? 'agendado')),
+            ];
+        }
+
+        return $this->response->setJSON($events);
+    }
+
+    /**
+     * Atualiza data/hora de um agendamento apos drag-and-drop no FullCalendar.
+     */
+    public function updateSchedule(): ResponseInterface
+    {
+        $payload = $this->requestPayload();
+
+        $id = (int) ($payload['id'] ?? 0);
+        if ($id <= 0) {
+            return $this->jsonError(422, 'Agendamento invalido.');
+        }
+
+        $appointment = $this->appointmentModel->find($id);
+        if ($appointment === null) {
+            return $this->jsonError(404, 'Agendamento nao encontrado.');
+        }
+
+        $startTime = $this->normalizeDateTime($payload['start'] ?? null);
+        $endTime   = $this->normalizeDateTime($payload['end'] ?? null);
+
+        if ($startTime === null || $endTime === null) {
+            return $this->jsonError(422, 'As datas/horas de inicio e fim sao obrigatorias.');
+        }
+
+        if (strtotime($endTime) <= strtotime($startTime)) {
+            return $this->jsonError(422, 'O horario de fim deve ser posterior ao horario de inicio.');
+        }
+
+        $professionalId = (int) ($appointment['professional_id'] ?? 0);
+        $forceOverride  = filter_var($payload['force_override'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if (! $forceOverride) {
+            $conflicts = $this->appointmentModel->findConflicts($professionalId, $startTime, $endTime, $id);
+
+            if ($conflicts !== []) {
+                return $this->response->setStatusCode(409)->setJSON([
+                    'success'   => false,
+                    'conflict'  => true,
+                    'message'   => 'Conflito de horario para o profissional.',
+                    'conflicts' => $conflicts,
+                    'csrf_hash' => csrf_hash(),
+                ]);
+            }
+        }
+
+        if (! $this->appointmentModel->update($id, [
+            'start_time' => $startTime,
+            'end_time'   => $endTime,
+        ])) {
+            return $this->jsonError(500, 'Falha ao atualizar o agendamento.', $this->appointmentModel->errors());
+        }
+
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => 'Agendamento atualizado.',
+            'csrf_hash' => csrf_hash(),
+        ]);
+    }
+
 
     /**
      * @return array<string, mixed>
@@ -215,6 +297,25 @@ class AppointmentController extends BaseController
         $timestamp = strtotime((string) $value);
 
         return $timestamp === false ? null : date('Y-m-d', $timestamp);
+    }
+
+    private function statusColor(string $status): string
+    {
+        return match ($status) {
+            'confirmado'         => '#22c55e',
+            'realizado'          => '#10b981',
+            'falta_paciente'     => '#ef4444',
+            'falta_profissional' => '#f59e0b',
+            'cancelado'          => '#9ca3af',
+            default              => '#3b82f6',
+        };
+    }
+
+    private function toIso8601(string $datetime): string
+    {
+        $timestamp = strtotime($datetime);
+
+        return $timestamp === false ? '' : date('Y-m-d\TH:i:s\Z', $timestamp);
     }
 
     private function nullableId(mixed $value): ?int

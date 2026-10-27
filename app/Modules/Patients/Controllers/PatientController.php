@@ -157,7 +157,7 @@ class PatientController extends BaseController
 
         if ($patient === null) {
             return $this->response
-                ->setJSON(['success' => false, 'message' => 'Paciente nao encontrado.'])
+                ->setJSON(['success' => false, 'message' => 'Paciente nao encontrado.', 'csrf_hash' => csrf_hash()])
                 ->setStatusCode(404);
         }
 
@@ -165,8 +165,9 @@ class PatientController extends BaseController
 
         if (! $this->patientModel->update((int) $id, ['is_active' => $newStatus])) {
             return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Falha ao atualizar o status do paciente.',
+                'success'   => false,
+                'message'   => 'Falha ao atualizar o status do paciente.',
+                'csrf_hash' => csrf_hash(),
             ]);
         }
 
@@ -174,6 +175,7 @@ class PatientController extends BaseController
             'success'   => true,
             'is_active' => $newStatus,
             'message'   => $newStatus === 1 ? 'Paciente ativado.' : 'Paciente inativado.',
+            'csrf_hash' => csrf_hash(),
         ]);
     }
     /**
