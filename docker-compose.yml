@@ -1,0 +1,45 @@
+services:
+  app:
+    build: .
+    container_name: mindtrack_app
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+    environment:
+      CI_ENVIRONMENT: development
+    command: sh -c "chown -R www-data:www-data /var/www/html/writable && exec apache2-foreground"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - mindtrack
+
+  db:
+    image: mysql:8.0
+    container_name: mindtrack_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mindtrack
+      MYSQL_USER: mindtrack
+      MYSQL_PASSWORD: mindtrack
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    networks:
+      - mindtrack
+
+volumes:
+  db_data:
+
+networks:
+  mindtrack:
