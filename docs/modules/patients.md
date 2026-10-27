@@ -15,4 +15,4 @@
 1. **SoftDeletes:** Pacientes nunca devem ser deletados do banco, apenas inativados.
 2. **Responsáveis:** Um paciente pode ter múltiplos responsáveis (marcar um como Principal e um como Financeiro).
 3. **Obrigatoriedade:** Nome, Data de Nascimento e Unidade são obrigatórios.
-4. **Interface:** Tabela com busca (nome/cpf), filtros e paginação.
+4. **Interface:** Tabela com busca (nome/cpf), filtros e paginação. O formulário deve usar Abas (Tabs) para organizar Pessoal, Clínico, Endereço e Responsáveis.
