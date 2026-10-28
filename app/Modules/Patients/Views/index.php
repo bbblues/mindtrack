@@ -25,7 +25,9 @@ $formatDate = static function (?string $date): string {
 };
 ?>
 
-<div class="space-y-6">
+<style>[x-cloak]{display:none!important}</style>
+
+<div x-data="startAssessment()" x-cloak class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
             <h2 class="text-xl font-semibold text-gray-800">Pacientes</h2>
@@ -106,7 +108,17 @@ $formatDate = static function (?string $date): string {
                                     </button>
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right">
-                                    <a href="<?= site_url('patients/edit/' . (int) $patient['id']) ?>" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Editar</a>
+                                    <div class="inline-flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            data-patient-name="<?= esc((string) $patient['name'], 'attr') ?>"
+                                            @click="openModal(<?= (int) $patient['id'] ?>, $event.target.dataset.patientName)"
+                                            class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700"
+                                        >
+                                            Iniciar Avaliação
+                                        </button>
+                                        <a href="<?= site_url('patients/edit/' . (int) $patient['id']) ?>" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Editar</a>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -120,6 +132,48 @@ $formatDate = static function (?string $date): string {
                 </div>
             <?php endif; ?>
         <?php endif; ?>
+    </div>
+
+    <!-- Modal: Iniciar Avaliacao -->
+    <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @keydown.escape.window="open = false">
+        <div class="w-full max-w-md rounded-xl bg-white shadow-xl" @click.outside="open = false">
+            <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                <h3 class="text-lg font-semibold text-gray-800">Iniciar Avaliação</h3>
+                <button type="button" @click="open = false" class="rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600" aria-label="Fechar">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="space-y-4 p-6">
+                <p class="text-sm text-gray-600">Paciente: <span class="font-semibold text-gray-800" x-text="patientName"></span></p>
+
+                <?php if ($protocols === []): ?>
+                    <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+                        Nenhum protocolo ativo cadastrado.
+                        <a href="<?= site_url('protocols/create') ?>" class="font-semibold underline">Crie um protocolo</a> antes de iniciar a avaliacao.
+                    </div>
+                <?php else: ?>
+                    <form action="<?= site_url('assessments/create') ?>" method="post">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="patient_id" :value="patientId">
+                        <div>
+                            <label for="protocol_id" class="mb-1 block text-sm font-medium text-gray-700">Protocolo *</label>
+                            <select id="protocol_id" name="protocol_id" required class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                                <option value="">Selecione...</option>
+                                <?php foreach ($protocols as $protocol): ?>
+                                    <option value="<?= (int) $protocol['id'] ?>"><?= esc($protocol['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="mt-4 flex justify-end gap-2">
+                            <button type="button" @click="open = false" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Cancelar</button>
+                            <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">Iniciar</button>
+                        </div>
+                    </form>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -164,6 +218,20 @@ $formatDate = static function (?string $date): string {
     });
     </script>
 
+    <script>
+    function startAssessment() {
+        return {
+            open: false,
+            patientId: null,
+            patientName: '',
+            openModal(patientId, patientName) {
+                this.patientId = patientId;
+                this.patientName = patientName;
+                this.open = true;
+            },
+        };
+    }
+    </script>
 
 </div>
 <?= $this->endSection() ?>

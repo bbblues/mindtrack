@@ -8,6 +8,7 @@ use App\Modules\Core\Models\UnitModel;
 use App\Modules\Patients\Models\GuardianModel;
 use App\Modules\Patients\Models\PatientGuardianModel;
 use App\Modules\Patients\Models\PatientModel;
+use App\Modules\Protocols\Models\ProtocolModel;
 use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
 
@@ -23,6 +24,8 @@ class PatientController extends BaseController
 
     protected HealthInsuranceModel $healthInsuranceModel;
 
+    protected ProtocolModel $protocolModel;
+
     public function __construct()
     {
         $this->patientModel         = new PatientModel();
@@ -30,6 +33,7 @@ class PatientController extends BaseController
         $this->patientGuardianModel = new PatientGuardianModel();
         $this->unitModel            = new UnitModel();
         $this->healthInsuranceModel = new HealthInsuranceModel();
+        $this->protocolModel        = new ProtocolModel();
     }
 
     /**
@@ -42,10 +46,11 @@ class PatientController extends BaseController
         $patients = $this->patientModel->paginateWithCatalogs($search);
 
         return view('App\Modules\Patients\Views\index', [
-            'title'    => 'Pacientes',
-            'patients' => $patients,
-            'pager'    => $this->patientModel->pager,
-            'search'   => $search,
+            'title'     => 'Pacientes',
+            'patients'  => $patients,
+            'protocols' => $this->protocolModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll(),
+            'pager'     => $this->patientModel->pager,
+            'search'    => $search,
         ]);
     }
 
