@@ -17,6 +17,7 @@ $routes->post('/login', [AuthController::class, 'authenticate']);
 $routes->get('/logout', [AuthController::class, 'logout']);
 
 $routes->get('/dashboard', [DashboardController::class, 'index'], ['filter' => 'auth']);
+$routes->get('/dashboard/data', [DashboardController::class, 'getData'], ['filter' => 'auth']);
 
 require_once __DIR__ . '/../Modules/Patients/Config/Routes.php';
 require_once __DIR__ . '/../Modules/Agenda/Config/Routes.php';
