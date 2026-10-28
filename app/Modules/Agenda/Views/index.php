@@ -153,6 +153,33 @@
             </div>
         </div>
     </div>
+    <!-- Modal: Detalhes do Agendamento -->
+    <div x-show="selected.open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @keydown.escape.window="selected.open = false">
+        <div class="w-full max-w-md rounded-xl bg-white shadow-xl" @click.outside="selected.open = false">
+            <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                <h3 class="text-lg font-semibold text-gray-800">Agendamento</h3>
+                <button type="button" @click="selected.open = false" class="rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600" aria-label="Fechar">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="space-y-4 p-6">
+                <div>
+                    <span class="block text-xs font-semibold uppercase tracking-wide text-gray-400">Paciente</span>
+                    <p class="mt-1 text-sm font-medium text-gray-800" x-text="selected.event ? selected.event.title : '—'"></p>
+                </div>
+                <div>
+                    <span class="block text-xs font-semibold uppercase tracking-wide text-gray-400">Quando</span>
+                    <p class="mt-1 text-sm text-gray-700" x-text="selected.event ? selected.event.when : '—'"></p>
+                </div>
+                <div class="flex justify-end gap-3 border-t border-gray-200 pt-4">
+                    <button type="button" @click="selected.open = false" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Fechar</button>
+                    <a :href="selected.event ? (evolutionCreateUrl + '/' + selected.event.id) : '#'" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">Registrar Evolução</a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -162,6 +189,8 @@ function agendaApp() {
         submitting: false,
         conflict: { open: false, conflicts: [] },
         pendingPayload: null,
+        selected: { open: false, event: null },
+        evolutionCreateUrl: <?= json_encode(site_url('evolutions/create')) ?>,
         token: <?= json_encode(csrf_hash()) ?>,
         defaultDuration: <?= (int) $defaultDuration ?>,
         form: {
@@ -176,6 +205,12 @@ function agendaApp() {
             is_recurring: false,
             recurrence_end_date: '',
             notes: '',
+        },
+        init() {
+            window.addEventListener('agenda:eventClick', (event) => {
+                this.selected.event = event.detail;
+                this.selected.open = true;
+            });
         },
         openModal() {
             this.form.end_time = this.addMinutes(this.form.start_time, this.defaultDuration);
@@ -297,6 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         editable: true,
         eventDurationEditable: false,
+        eventClick: (info) => handleEventClick(info),
         events: {
             url: <?= json_encode(site_url('agenda/events')) ?>,
             method: 'GET',
@@ -356,6 +392,22 @@ document.addEventListener('DOMContentLoaded', () => {
             info.revert();
             alert('Erro ao mover o agendamento.');
         }
+    }
+
+    function handleEventClick(info) {
+        info.jsEvent.preventDefault();
+
+        const formatDate = (date) => date
+            ? date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            : '';
+
+        window.dispatchEvent(new CustomEvent('agenda:eventClick', {
+            detail: {
+                id: info.event.id,
+                title: info.event.title,
+                when: formatDate(info.event.start) + (info.event.end ? ' até ' + formatDate(info.event.end) : ''),
+            },
+        }));
     }
 
     async function postUpdate(payload) {

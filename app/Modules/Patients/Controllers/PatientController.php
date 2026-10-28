@@ -5,6 +5,7 @@ namespace App\Modules\Patients\Controllers;
 use App\Controllers\BaseController;
 use App\Modules\Core\Models\HealthInsuranceModel;
 use App\Modules\Core\Models\UnitModel;
+use App\Modules\Evolutions\Models\SessionEvolutionModel;
 use App\Modules\Patients\Models\GuardianModel;
 use App\Modules\Patients\Models\PatientGuardianModel;
 use App\Modules\Patients\Models\PatientModel;
@@ -26,6 +27,8 @@ class PatientController extends BaseController
 
     protected ProtocolModel $protocolModel;
 
+    protected SessionEvolutionModel $evolutionModel;
+
     public function __construct()
     {
         $this->patientModel         = new PatientModel();
@@ -34,6 +37,7 @@ class PatientController extends BaseController
         $this->unitModel            = new UnitModel();
         $this->healthInsuranceModel = new HealthInsuranceModel();
         $this->protocolModel        = new ProtocolModel();
+        $this->evolutionModel       = new SessionEvolutionModel();
     }
 
     /**
@@ -70,6 +74,7 @@ class PatientController extends BaseController
             'guardians'        => $guardians,
             'units'            => $this->unitModel->orderBy('name', 'ASC')->findAll(),
             'healthInsurances' => $this->healthInsuranceModel->orderBy('name', 'ASC')->findAll(),
+            'evolutions'       => [],
         ]);
     }
     /**
@@ -124,6 +129,7 @@ class PatientController extends BaseController
             'guardians'        => $guardians,
             'units'            => $this->unitModel->orderBy('name', 'ASC')->findAll(),
             'healthInsurances' => $this->healthInsuranceModel->orderBy('name', 'ASC')->findAll(),
+            'evolutions'       => $this->evolutionModel->forPatient((int) $id),
         ]);
     }
 

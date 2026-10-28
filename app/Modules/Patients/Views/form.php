@@ -40,6 +40,9 @@ $selectedInsuranceId = (string) old('health_insurance_id', $p['health_insurance_
             <button type="button" @click="tab = 'clinico'" :class="tab === 'clinico' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="border-b-2 px-4 py-3 text-sm font-medium">Clínico</button>
             <button type="button" @click="tab = 'endereco'" :class="tab === 'endereco' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="border-b-2 px-4 py-3 text-sm font-medium">Endereço</button>
             <button type="button" @click="tab = 'responsaveis'" :class="tab === 'responsaveis' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="border-b-2 px-4 py-3 text-sm font-medium">Responsáveis</button>
+            <?php if ($isEdit): ?>
+                <button type="button" @click="tab = 'historico'" :class="tab === 'historico' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="border-b-2 px-4 py-3 text-sm font-medium">Histórico</button>
+            <?php endif; ?>
         </div>
 
         <div class="space-y-6 p-6">
@@ -212,6 +215,19 @@ $selectedInsuranceId = (string) old('health_insurance_id', $p['health_insurance_
 
                 <p x-show="guardians.length === 0" class="text-sm text-gray-500">Nenhum responsável adicionado.</p>
             </div>
+
+            <?php if ($isEdit): ?>
+            <div x-show="tab === 'historico'" x-cloak>
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-700">Histórico de Evoluções</h3>
+                        <p class="text-xs text-gray-500">Feed cronológico das sessões registradas.</p>
+                    </div>
+                    <a href="<?= site_url('evolutions/' . (int) ($p['id'] ?? 0)) ?>" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Ver histórico completo</a>
+                </div>
+                <?= view('App\Modules\Evolutions\Views\_feed', ['evolutions' => $evolutions]) ?>
+            </div>
+            <?php endif; ?>
 
 
 
