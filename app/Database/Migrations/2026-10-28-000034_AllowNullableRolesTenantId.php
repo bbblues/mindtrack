@@ -20,6 +20,7 @@ class AllowNullableRolesTenantId extends Migration
 
     public function down()
     {
+        $this->forge->dropForeignKey('roles', 'roles_tenant_id_foreign');
         $this->forge->modifyColumn('roles', [
             'tenant_id' => [
                 'type'       => 'INT',
@@ -28,5 +29,6 @@ class AllowNullableRolesTenantId extends Migration
                 'null'       => false,
             ],
         ]);
+        $this->forge->addForeignKey('tenant_id', 'tenants', 'id', 'CASCADE', 'CASCADE');
     }
 }

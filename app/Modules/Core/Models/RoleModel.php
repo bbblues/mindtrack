@@ -66,8 +66,12 @@ class RoleModel extends BaseModel
     }
 
     /**
-     * Retorna os cargos visiveis no formulario de usuario:
-     * os cargos do tenant indicado mais os cargos globais (tenant_id null).
+     * Retorna os cargos visiveis no formulario de usuario.
+     *
+     * Quando ha um tenant, retorna APENAS os cargos daquele tenant
+     * (cada clinica nova ja recebe seus 4 cargos padrao automaticamente).
+     * Quando nao ha tenant (contexto do Super Admin), retorna os cargos
+     * globais (tenant_id IS NULL).
      *
      * @return array<int, array<string, mixed>>
      */
@@ -76,10 +80,12 @@ class RoleModel extends BaseModel
         $builder = $this->db->table('roles');
 
         $builder->where('deleted_at', null);
-        $builder->groupStart();
-        $builder->where('tenant_id', $tenantId);
-        $builder->orWhere('tenant_id', null);
-        $builder->groupEnd();
+
+        if ($tenantId === null) {
+            $builder->where('tenant_id', null);
+        } else {
+            $builder->where('tenant_id', $tenantId);
+        }
 
         return $builder->orderBy('name', 'ASC')->get()->getResultArray();
     }

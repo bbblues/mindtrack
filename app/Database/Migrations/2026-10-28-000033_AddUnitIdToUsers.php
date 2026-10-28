@@ -19,12 +19,13 @@ class AddUnitIdToUsers extends Migration
 
         $this->forge->addKey('unit_id');
         $this->forge->addForeignKey('unit_id', 'units', 'id', 'CASCADE', 'CASCADE', 'fk_users_unit_id');
+        $this->forge->processIndexes('users');
     }
 
     public function down()
     {
         $this->forge->dropForeignKey('users', 'fk_users_unit_id');
-        $this->forge->dropKey('users', 'unit_id');
+        $this->forge->dropKey('users', 'users_unit_id');
         $this->forge->dropColumn('users', 'unit_id');
     }
 }
