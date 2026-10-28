@@ -1,7 +1,9 @@
 <?php
 
 use App\Controllers\DashboardController;
+use App\Modules\Assessments\Controllers\AssessmentController;
 use App\Modules\Core\Controllers\AuthController;
+use App\Modules\Core\Controllers\ProfileController;
 use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
@@ -18,6 +20,11 @@ $routes->get('/logout', [AuthController::class, 'logout']);
 
 $routes->get('/dashboard', [DashboardController::class, 'index'], ['filter' => 'auth']);
 $routes->get('/dashboard/data', [DashboardController::class, 'getData'], ['filter' => 'auth']);
+
+$routes->get('/profile', [ProfileController::class, 'index'], ['filter' => 'auth']);
+$routes->post('/profile', [ProfileController::class, 'update'], ['filter' => 'auth']);
+
+$routes->get('/assessments/export-pdf/(:num)', [AssessmentController::class, 'exportPdf'], ['filter' => 'auth']);
 
 require_once __DIR__ . '/../Modules/Patients/Config/Routes.php';
 require_once __DIR__ . '/../Modules/Agenda/Config/Routes.php';

@@ -5,6 +5,7 @@ namespace App\Modules\Assessments\Controllers;
 use App\Controllers\BaseController;
 use App\Modules\Assessments\Models\PatientAssessmentItemModel;
 use App\Modules\Assessments\Models\PatientAssessmentModel;
+use App\Modules\Core\Models\TenantModel;
 use App\Modules\Patients\Models\PatientModel;
 use App\Modules\Protocols\Models\ProtocolItemModel;
 use App\Modules\Protocols\Models\ProtocolLevelModel;
@@ -13,6 +14,8 @@ use App\Modules\Protocols\Models\ProtocolSkillModel;
 use App\Modules\Protocols\Models\ProtocolStatusModel;
 use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class AssessmentController extends BaseController
 {
@@ -127,6 +130,76 @@ class AssessmentController extends BaseController
             'statuses'   => $statuses,
             'levels'     => $this->buildLevels((int) $protocol['id'], (int) $assessment['id']),
         ]);
+    }
+
+    /**
+     * Gera o PDF da avaliacao finalizada (via Dompdf) e envia como download.
+     */
+    public function exportPdf($id = null): ResponseInterface|RedirectResponse
+    {
+        $assessment = $this->assessmentModel->find((int) $id);
+
+        if ($assessment === null) {
+            return redirect()->to(site_url('patients'))->with('error', 'Avaliacao nao encontrada.');
+        }
+
+        if (($assessment['status'] ?? '') !== 'completed') {
+            return redirect()->to(site_url('assessments/show/' . (int) $assessment['id']))
+                ->with('error', 'Finalize a avaliacao antes de exportar o PDF.');
+        }
+
+        $patient  = $this->patientModel->find((int) $assessment['patient_id']);
+        $protocol = $this->protocolModel->find((int) $assessment['protocol_id']);
+
+        if ($patient === null || $protocol === null) {
+            return redirect()->to(site_url('patients'))->with('error', 'Paciente ou protocolo nao encontrado.');
+        }
+
+        $statuses = $this->statusModel
+            ->where('protocol_id', (int) $protocol['id'])
+            ->orderBy('sort_order', 'ASC')
+            ->findAll();
+
+        $statusNames = [];
+
+        foreach ($statuses as $status) {
+            $statusNames[(int) $status['id']] = (string) $status['name'];
+        }
+
+        $clinic   = null;
+        $tenantId = is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
+
+        if ($tenantId !== null) {
+            $clinic = (new TenantModel())->find($tenantId);
+        }
+
+        $html = view('App\Modules\Assessments\Views\pdf_assessment', [
+            'assessment'   => $assessment,
+            'patient'      => $patient,
+            'protocol'     => $protocol,
+            'statusNames'  => $statusNames,
+            'levels'       => $this->buildLevels((int) $protocol['id'], (int) $assessment['id']),
+            'clinic'       => $clinic,
+            'professional' => session('user_name'),
+        ]);
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', false);
+        $options->set('defaultFont', 'DejaVu Sans');
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $pdf      = $dompdf->output();
+        $filename = 'avaliacao_' . (int) $assessment['id'] . '_' . date('Ymd_His') . '.pdf';
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->setHeader('Content-Length', (string) strlen($pdf))
+            ->setBody($pdf);
     }
 
     /**

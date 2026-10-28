@@ -80,6 +80,13 @@ $hasItems = $itemStates !== [];
                     >
                         Finalizar Avaliação
                     </button>
+                    <a
+                        href="<?= site_url('assessments/export-pdf/' . (int) $assessment['id']) ?>"
+                        x-show="finalized"
+                        class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                    >
+                        Exportar PDF
+                    </a>
                     <button
                         type="button"
                         x-show="finalized"

@@ -100,9 +100,9 @@
                 <h1 class="text-lg font-semibold text-gray-800"><?= esc($title ?? 'MindTrack') ?></h1>
 
                 <div class="flex items-center gap-4">
-                    <span class="text-sm font-medium text-gray-700">
+                    <a href="<?= site_url('profile') ?>" class="text-sm font-medium text-gray-700 transition hover:text-blue-600">
                         <?= esc(session('user_name') ?? 'Usuario') ?>
-                    </span>
+                    </a>
                     <a
                         href="<?= site_url('logout') ?>"
                         class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
