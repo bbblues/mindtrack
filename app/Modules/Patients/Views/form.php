@@ -8,6 +8,11 @@ $p = $patient ?? [];
 $formAction = $isEdit ? site_url('patients/update/' . (int) $p['id']) : site_url('patients');
 $selectedUnitId = (string) old('unit_id', $p['unit_id'] ?? '');
 $selectedInsuranceId = (string) old('health_insurance_id', $p['health_insurance_id'] ?? '');
+
+$posts          = $posts ?? [];
+$milestones     = $milestones ?? [];
+$postTypes      = $postTypes ?? [];
+$milestoneIcons = $milestoneIcons ?? [];
 ?>
 
 <style>[x-cloak]{display:none!important}</style>
@@ -238,6 +243,28 @@ $selectedInsuranceId = (string) old('health_insurance_id', $p['health_insurance_
             <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">Salvar</button>
         </div>
     </form>
+
+    <?php if ($isEdit): ?>
+    <div x-data="patientFeed()" x-cloak class="mt-6 rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="flex border-b border-gray-200">
+            <button type="button" @click="tab = 'mural'" :class="tab === 'mural' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="border-b-2 px-4 py-3 text-sm font-medium">Mural</button>
+            <button type="button" @click="tab = 'jornada'" :class="tab === 'jornada' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="border-b-2 px-4 py-3 text-sm font-medium">Jornada</button>
+        </div>
+
+        <div class="p-6">
+            <?= view('App\Modules\Patients\Views\mural', [
+                'patient'   => $patient,
+                'posts'     => $posts,
+                'postTypes' => $postTypes,
+            ]) ?>
+            <?= view('App\Modules\Patients\Views\jornada', [
+                'patient'        => $patient,
+                'milestones'     => $milestones,
+                'milestoneIcons' => $milestoneIcons,
+            ]) ?>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <script>
@@ -320,6 +347,213 @@ document.addEventListener('DOMContentLoaded', () => {
     if (zip && zip.value) zip.value = maskCep(zip.value);
 });
 </script>
+
+<?php if ($isEdit): ?>
+<script>
+function patientFeed() {
+    return {
+        tab: 'mural',
+        token: <?= json_encode(csrf_hash()) ?>,
+        patientId: <?= (int) ($p['id'] ?? 0) ?>,
+        storePostUrl: <?= json_encode(site_url('patients/' . (int) ($p['id'] ?? 0) . '/posts')) ?>,
+        storeMilestoneUrl: <?= json_encode(site_url('patients/' . (int) ($p['id'] ?? 0) . '/milestones')) ?>,
+
+        posts: <?= json_encode($posts, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>,
+        postTypes: <?= json_encode($postTypes, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>,
+        postFilter: 'all',
+        postContent: '',
+        postType: 'evolution',
+        postSaving: false,
+        postError: '',
+
+        milestones: <?= json_encode($milestones, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>,
+        milestoneIcons: <?= json_encode($milestoneIcons, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>,
+        milestoneOpen: false,
+        milestoneTitle: '',
+        milestoneDescription: '',
+        milestoneEventDate: <?= json_encode(date('Y-m-d')) ?>,
+        milestoneIcon: '🎯',
+        milestoneSaving: false,
+        milestoneError: '',
+
+        get postTypeFilters() {
+            return [
+                { value: 'all', label: 'Todos' },
+                ...Object.entries(this.postTypes).map(([value, label]) => ({ value, label })),
+            ];
+        },
+
+        get filteredPosts() {
+            if (this.postFilter === 'all') return this.posts;
+            return this.posts.filter(post => post.type === this.postFilter);
+        },
+
+        get milestoneGroups() {
+            const sorted = [...this.milestones].sort((a, b) => String(b.event_date || '').localeCompare(String(a.event_date || '')));
+            const groups = [];
+            const map = new Map();
+
+            for (const milestone of sorted) {
+                const key = this.monthKey(milestone.event_date);
+                if (! map.has(key)) {
+                    const group = { key, label: this.monthLabel(milestone.event_date), items: [] };
+                    map.set(key, group);
+                    groups.push(group);
+                }
+                map.get(key).items.push(milestone);
+            }
+
+            return groups;
+        },
+
+        typeLabel(type) {
+            return this.postTypes[type] || type;
+        },
+
+        typeBadge(type) {
+            const map = {
+                evolution: 'bg-blue-100 text-blue-700',
+                communication: 'bg-purple-100 text-purple-700',
+                family: 'bg-green-100 text-green-700',
+                school: 'bg-amber-100 text-amber-700',
+            };
+
+            return map[type] || 'bg-gray-100 text-gray-700';
+        },
+
+        initials(name) {
+            return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?';
+        },
+
+        formatDate(value) {
+            if (! value) return '—';
+            const date = new Date(String(value).replace(' ', 'T'));
+            if (isNaN(date.getTime())) return value;
+            const day = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            return day + ' ' + time;
+        },
+
+        formatDay(value) {
+            if (! value) return '—';
+            const date = new Date(String(value) + 'T00:00:00');
+            if (isNaN(date.getTime())) return value;
+            return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        },
+
+        monthKey(value) {
+            if (! value) return '—';
+            const date = new Date(String(value) + 'T00:00:00');
+            if (isNaN(date.getTime())) return '—';
+            return date.getFullYear() + '-' + date.getMonth();
+        },
+
+        monthLabel(value) {
+            if (! value) return '—';
+            const date = new Date(String(value) + 'T00:00:00');
+            if (isNaN(date.getTime())) return value;
+            const month = date.toLocaleDateString('pt-BR', { month: 'long' });
+            return month.charAt(0).toUpperCase() + month.slice(1) + ' de ' + date.getFullYear();
+        },
+
+        refreshCsrf(hash) {
+            if (! hash) return;
+            this.token = hash;
+            document.querySelectorAll('input[name="csrf_test_name"]').forEach(el => { el.value = hash; });
+        },
+
+        async submitPost() {
+            this.postError = '';
+            const content = this.postContent.trim();
+            if (! content) {
+                this.postError = 'Escreva o conteúdo da publicação.';
+                return;
+            }
+
+            this.postSaving = true;
+            try {
+                const response = await fetch(this.storePostUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': this.token,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ patient_id: this.patientId, content, type: this.postType }),
+                });
+
+                const data = await response.json();
+                this.refreshCsrf(data.csrf_hash);
+
+                if (! data.success) {
+                    this.postError = data.message || 'Erro ao publicar no mural.';
+                    return;
+                }
+
+                if (data.post) this.posts.unshift(data.post);
+                this.postContent = '';
+                this.postFilter = 'all';
+            } catch (error) {
+                this.postError = 'Erro ao publicar no mural.';
+            } finally {
+                this.postSaving = false;
+            }
+        },
+
+        async submitMilestone() {
+            this.milestoneError = '';
+            const title = this.milestoneTitle.trim();
+            if (! title) {
+                this.milestoneError = 'Informe o título do marco.';
+                return;
+            }
+            if (! this.milestoneEventDate) {
+                this.milestoneError = 'Informe a data do marco.';
+                return;
+            }
+
+            this.milestoneSaving = true;
+            try {
+                const response = await fetch(this.storeMilestoneUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': this.token,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        patient_id: this.patientId,
+                        title,
+                        description: this.milestoneDescription.trim(),
+                        event_date: this.milestoneEventDate,
+                        icon: this.milestoneIcon,
+                    }),
+                });
+
+                const data = await response.json();
+                this.refreshCsrf(data.csrf_hash);
+
+                if (! data.success) {
+                    this.milestoneError = data.message || 'Erro ao salvar o marco.';
+                    return;
+                }
+
+                if (data.milestone) this.milestones.unshift(data.milestone);
+                this.milestoneTitle = '';
+                this.milestoneDescription = '';
+                this.milestoneEventDate = new Date().toISOString().slice(0, 10);
+                this.milestoneIcon = '🎯';
+                this.milestoneOpen = false;
+            } catch (error) {
+                this.milestoneError = 'Erro ao salvar o marco.';
+            } finally {
+                this.milestoneSaving = false;
+            }
+        },
+    };
+}
+</script>
+<?php endif; ?>
 
 <?= $this->endSection() ?>
 

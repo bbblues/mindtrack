@@ -8,7 +8,9 @@ use App\Modules\Core\Models\UnitModel;
 use App\Modules\Evolutions\Models\SessionEvolutionModel;
 use App\Modules\Patients\Models\GuardianModel;
 use App\Modules\Patients\Models\PatientGuardianModel;
+use App\Modules\Patients\Models\PatientMilestoneModel;
 use App\Modules\Patients\Models\PatientModel;
+use App\Modules\Patients\Models\PatientPostModel;
 use App\Modules\Protocols\Models\ProtocolModel;
 use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -29,6 +31,10 @@ class PatientController extends BaseController
 
     protected SessionEvolutionModel $evolutionModel;
 
+    protected PatientMilestoneModel $milestoneModel;
+
+    protected PatientPostModel $postModel;
+
     public function __construct()
     {
         $this->patientModel         = new PatientModel();
@@ -38,6 +44,8 @@ class PatientController extends BaseController
         $this->healthInsuranceModel = new HealthInsuranceModel();
         $this->protocolModel        = new ProtocolModel();
         $this->evolutionModel       = new SessionEvolutionModel();
+        $this->milestoneModel       = new PatientMilestoneModel();
+        $this->postModel            = new PatientPostModel();
     }
 
     /**
@@ -101,6 +109,16 @@ class PatientController extends BaseController
 
         $this->saveGuardians((int) $patientId, $this->request->getPost('guardians') ?? []);
 
+        // Automacao: cria o marco inicial da jornada do paciente.
+        if ($this->milestoneModel->insert([
+            'tenant_id'  => $tenantId,
+            'patient_id' => (int) $patientId,
+            'title'      => 'Início do Tratamento',
+            'event_date' => date('Y-m-d'),
+        ]) === false) {
+            log_message('error', 'Falha ao criar o marco "Início do Tratamento" para o paciente ' . (int) $patientId . '.');
+        }
+
         return redirect()->to(site_url('patients'))->with('success', 'Paciente criado com sucesso.');
     }
 
@@ -130,6 +148,10 @@ class PatientController extends BaseController
             'units'            => $this->unitModel->orderBy('name', 'ASC')->findAll(),
             'healthInsurances' => $this->healthInsuranceModel->orderBy('name', 'ASC')->findAll(),
             'evolutions'       => $this->evolutionModel->forPatient((int) $id),
+            'posts'            => $this->postModel->forPatient((int) $id),
+            'milestones'       => $this->milestoneModel->forPatient((int) $id),
+            'postTypes'        => PatientPostModel::POST_TYPES,
+            'milestoneIcons'   => PatientMilestoneModel::MILESTONE_ICONS,
         ]);
     }
 
