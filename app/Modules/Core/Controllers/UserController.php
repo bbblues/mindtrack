@@ -152,7 +152,7 @@ class UserController extends BaseController
             'title'           => $user === null ? 'Novo Usuário' : 'Editar Usuário',
             'user'            => $user,
             'units'           => $this->unitModel->orderBy('name', 'ASC')->findAll(),
-            'roles'           => $this->roleModel->orderBy('name', 'ASC')->findAll(),
+            'roles'           => $this->roleModel->rolesForTenant($this->roleTenantIdForForm($user)),
             'tenants'         => $isSuperAdmin ? $this->tenantModel->orderBy('name', 'ASC')->findAll() : [],
             'selectedRoleIds' => $selectedRoleIds,
             'isSuperAdmin'    => $isSuperAdmin,
@@ -193,6 +193,26 @@ class UserController extends BaseController
     {
         if ((int) session('is_super_admin') === 1) {
             $tenantId = $this->request->getPost('tenant_id');
+
+            return is_numeric($tenantId) && (int) $tenantId > 0 ? (int) $tenantId : null;
+        }
+
+        return is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
+    }
+
+    /**
+     * Tenant usado para listar os cargos disponiveis no formulario.
+     * Na edicao, usa o tenant do proprio usuario. Na criacao, usa o
+     * tenant da sessao (ou o selecionado pelo Super Admin).
+     */
+    private function roleTenantIdForForm(?array $user): ?int
+    {
+        if ($user !== null) {
+            return is_numeric($user['tenant_id'] ?? null) ? (int) $user['tenant_id'] : null;
+        }
+
+        if ((int) session('is_super_admin') === 1) {
+            $tenantId = old('tenant_id');
 
             return is_numeric($tenantId) && (int) $tenantId > 0 ? (int) $tenantId : null;
         }

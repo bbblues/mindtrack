@@ -50,6 +50,7 @@ class AuthController extends BaseController
             'tenant_id'      => $user['tenant_id'] !== null ? (int) $user['tenant_id'] : null,
             'is_super_admin' => (int) $user['is_super_admin'],
             'user_name'      => (string) $user['name'],
+            'user_role_slugs' => $userModel->roleSlugsForUser((int) $user['id']),
         ]);
         session()->regenerate();
 

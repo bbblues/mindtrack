@@ -46,6 +46,9 @@ class TenantModel extends BaseModel
 
         $this->syncModules((int) $tenantId, $selectedModuleIds);
 
+        // Cria os 4 cargos padrao (RBAC) vinculados ao novo tenant.
+        (new RoleModel())->createDefaultRolesForTenant((int) $tenantId);
+
         return (int) $tenantId;
     }
 

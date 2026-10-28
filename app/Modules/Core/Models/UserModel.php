@@ -92,4 +92,22 @@ class UserModel extends BaseModel
 
         return $map;
     }
+
+    /**
+     * Slugs dos cargos vinculados a um usuario (para verificacao de permissao).
+     *
+     * @return list<string>
+     */
+    public function roleSlugsForUser(int $userId): array
+    {
+        $rows = $this->db->table('role_user')
+            ->select('roles.slug')
+            ->join('roles', 'roles.id = role_user.role_id', 'left')
+            ->where('role_user.user_id', $userId)
+            ->where('roles.deleted_at', null)
+            ->get()
+            ->getResultArray();
+
+        return array_values(array_filter(array_map('strval', array_column($rows, 'slug'))));
+    }
 }

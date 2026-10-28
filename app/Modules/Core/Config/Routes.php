@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Core\Controllers\RoleController;
 use App\Modules\Core\Controllers\TenantController;
 use App\Modules\Core\Controllers\UserController;
 use CodeIgniter\Router\RouteCollection;
@@ -24,3 +25,11 @@ $routes->group('users', ['filter' => 'auth'], static function ($routes) {
     $routes->get('edit/(:num)', [UserController::class, 'edit'], ['as' => 'users.edit']);
     $routes->post('update/(:num)', [UserController::class, 'update'], ['as' => 'users.update']);
 });
+
+$routes->group('roles', ['filter' => 'auth'], static function ($routes) {
+    $routes->get('/', [RoleController::class, 'index'], ['as' => 'roles.index']);
+    $routes->post('/', [RoleController::class, 'store'], ['as' => 'roles.store']);
+    $routes->post('update/(:num)', [RoleController::class, 'update'], ['as' => 'roles.update']);
+    $routes->post('delete/(:num)', [RoleController::class, 'destroy'], ['as' => 'roles.destroy']);
+});
+
