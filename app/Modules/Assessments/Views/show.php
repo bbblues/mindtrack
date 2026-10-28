@@ -54,7 +54,7 @@ $hasItems = $itemStates !== [];
                     <p class="text-sm font-medium text-gray-500">Score total</p>
                     <p class="text-4xl font-bold text-blue-600" x-text="score"></p>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap items-center justify-end gap-2">
                     <button
                         type="button"
                         @click="mode = 'view'"
@@ -65,11 +65,28 @@ $hasItems = $itemStates !== [];
                     </button>
                     <button
                         type="button"
+                        x-show="!finalized"
                         @click="mode = 'edit'"
                         :class="mode === 'edit' ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-700'"
                         class="rounded-lg px-4 py-2 text-sm font-semibold transition hover:opacity-90"
                     >
                         Editar
+                    </button>
+                    <button
+                        type="button"
+                        x-show="!finalized"
+                        @click="finalize()"
+                        class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                    >
+                        Finalizar Avaliação
+                    </button>
+                    <button
+                        type="button"
+                        x-show="finalized"
+                        @click="generatePlan()"
+                        class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                    >
+                        Gerar Plano Terapêutico
                     </button>
                 </div>
             </div>
@@ -138,7 +155,7 @@ $hasItems = $itemStates !== [];
                                             ></span>
                                             <?php if ($item['assessment_item_id'] !== null): ?>
                                                 <select
-                                                    x-show="mode === 'edit'"
+                                                    x-show="mode === 'edit' && !finalized"
                                                     x-cloak
                                                     data-previous="<?= $item['status_id'] !== null ? (int) $item['status_id'] : '' ?>"
                                                     @change="saveItem(<?= (int) $item['assessment_item_id'] ?>, $event.target.value, $event.target)"
@@ -169,10 +186,15 @@ $hasItems = $itemStates !== [];
 function assessmentApp() {
     return {
         mode: 'view',
+        finalized: <?= ($assessment['status'] ?? '') === 'completed' ? 'true' : 'false' ?>,
         score: <?= (int) ($assessment['score'] ?? 0) ?>,
         csrfToken: <?= json_encode(csrf_hash()) ?>,
         statuses: <?= json_encode($statusesForJs) ?>,
         items: <?= json_encode($itemStates) ?>,
+        finalizeUrl: <?= json_encode(site_url('assessments/finalize/' . (int) $assessment['id'])) ?>,
+        generatePlanUrl: <?= json_encode(site_url('plans/store')) ?>,
+        patientId: <?= (int) $assessment['patient_id'] ?>,
+        assessmentId: <?= (int) $assessment['id'] ?>,
 
         statusName(id) {
             if (!id) {
@@ -196,6 +218,72 @@ function assessmentApp() {
             }
 
             return status.value > 0 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700';
+        },
+
+        async finalize() {
+            if (! confirm('Finalizar esta avaliação? Após finalizar, a edição será bloqueada.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(this.finalizeUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': this.csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({}),
+                });
+
+                const data = await response.json();
+
+                if (data.csrf_hash) {
+                    this.csrfToken = data.csrf_hash;
+                }
+
+                if (! data.success) {
+                    alert(data.message || 'Erro ao finalizar a avaliação.');
+                    return;
+                }
+
+                this.finalized = true;
+                this.mode = 'view';
+            } catch (error) {
+                alert('Erro ao finalizar a avaliação.');
+            }
+        },
+
+        async generatePlan() {
+            try {
+                const response = await fetch(this.generatePlanUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': this.csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({
+                        patient_id: this.patientId,
+                        assessment_id: this.assessmentId,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (data.csrf_hash) {
+                    this.csrfToken = data.csrf_hash;
+                }
+
+                if (! data.success) {
+                    alert(data.message || 'Erro ao gerar o plano terapêutico.');
+                    return;
+                }
+
+                window.location.assign(data.redirect);
+            } catch (error) {
+                alert('Erro ao gerar o plano terapêutico.');
+            }
         },
 
         async saveItem(assessmentItemId, statusId, selectEl) {

@@ -193,6 +193,37 @@ class AssessmentController extends BaseController
     }
 
     /**
+     * Finaliza a avaliacao, mudando o status para 'completed' e bloqueando
+     * a edicao dos itens (o front passa a forcar o modo de visualizacao).
+     */
+    public function finalize($id = null): ResponseInterface
+    {
+        $assessment = $this->assessmentModel->find((int) $id);
+
+        if ($assessment === null) {
+            return $this->jsonError(404, 'Avaliacao nao encontrada.');
+        }
+
+        if (($assessment['status'] ?? '') === 'completed') {
+            return $this->response->setJSON([
+                'success'   => true,
+                'message'   => 'Avaliacao ja finalizada.',
+                'csrf_hash' => csrf_hash(),
+            ]);
+        }
+
+        if (! $this->assessmentModel->update((int) $assessment['id'], ['status' => 'completed'])) {
+            return $this->jsonError(500, 'Falha ao finalizar a avaliacao.', $this->assessmentModel->errors());
+        }
+
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => 'Avaliacao finalizada.',
+            'csrf_hash' => csrf_hash(),
+        ]);
+    }
+
+    /**
      * Monta a estrutura aninhada niveis -> habilidades -> itens, ja com a
      * resposta atual de cada item (assessment_item_id, status_id e valor).
      *

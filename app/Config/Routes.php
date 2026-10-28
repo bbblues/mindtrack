@@ -22,5 +22,6 @@ require_once __DIR__ . '/../Modules/Patients/Config/Routes.php';
 require_once __DIR__ . '/../Modules/Agenda/Config/Routes.php';
 require_once __DIR__ . '/../Modules/Protocols/Config/Routes.php';
 require_once __DIR__ . '/../Modules/Assessments/Config/Routes.php';
+require_once __DIR__ . '/../Modules/Plans/Config/Routes.php';
 
 
