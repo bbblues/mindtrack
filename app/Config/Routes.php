@@ -24,5 +24,6 @@ require_once __DIR__ . '/../Modules/Protocols/Config/Routes.php';
 require_once __DIR__ . '/../Modules/Assessments/Config/Routes.php';
 require_once __DIR__ . '/../Modules/Plans/Config/Routes.php';
 require_once __DIR__ . '/../Modules/Evolutions/Config/Routes.php';
+require_once __DIR__ . '/../Modules/Core/Config/Routes.php';
 
 

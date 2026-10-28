@@ -44,6 +44,34 @@ class CoreSeeder extends Seeder
                 'is_core'     => 1,
                 'is_active'   => 1,
             ],
+            [
+                'name'        => 'Protocolos',
+                'slug'        => 'protocols',
+                'description' => 'Protocolos de atendimento',
+                'is_core'     => 0,
+                'is_active'   => 1,
+            ],
+            [
+                'name'        => 'Avaliações',
+                'slug'        => 'assessments',
+                'description' => 'Avaliações de pacientes',
+                'is_core'     => 0,
+                'is_active'   => 1,
+            ],
+            [
+                'name'        => 'Planos Terapêuticos',
+                'slug'        => 'plans',
+                'description' => 'Planos terapêuticos',
+                'is_core'     => 0,
+                'is_active'   => 1,
+            ],
+            [
+                'name'        => 'Evoluções',
+                'slug'        => 'evolutions',
+                'description' => 'Evoluções de sessões',
+                'is_core'     => 0,
+                'is_active'   => 1,
+            ],
         ];
 
         $existingSlugs = array_column($moduleModel->findAll(), 'slug');
