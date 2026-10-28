@@ -7,6 +7,14 @@
         <p class="mt-1 text-sm text-gray-500">Este e o painel inicial do MindTrack.</p>
     </div>
 
+    <?php if (session('success')): ?>
+        <div class="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700"><?= esc(session('success')) ?></div>
+    <?php endif; ?>
+
+    <?php if (session('error')): ?>
+        <div class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><?= esc(session('error')) ?></div>
+    <?php endif; ?>
+
     <?php if ($isSuperAdmin): ?>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">

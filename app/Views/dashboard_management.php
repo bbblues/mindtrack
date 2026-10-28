@@ -7,6 +7,14 @@
         <p class="mt-1 text-sm text-gray-500">Indicadores operacionais da clínica.</p>
     </div>
 
+    <?php if (session('success')): ?>
+        <div class="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700"><?= esc(session('success')) ?></div>
+    <?php endif; ?>
+
+    <?php if (session('error')): ?>
+        <div class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><?= esc(session('error')) ?></div>
+    <?php endif; ?>
+
     <!-- Cards de KPI -->
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">

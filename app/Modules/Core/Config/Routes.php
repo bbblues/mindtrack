@@ -26,7 +26,7 @@ $routes->group('tenants', ['filter' => ['auth', 'superadmin']], static function 
     $routes->post('update/(:num)', [TenantController::class, 'update'], ['as' => 'tenants.update']);
 });
 
-$routes->group('users', ['filter' => 'auth'], static function ($routes) {
+$routes->group('users', ['filter' => ['auth', 'role:admin,gestor']], static function ($routes) {
     $routes->get('/', [UserController::class, 'index'], ['as' => 'users.index']);
     $routes->get('create', [UserController::class, 'create'], ['as' => 'users.create']);
     $routes->post('/', [UserController::class, 'store'], ['as' => 'users.store']);
@@ -34,14 +34,14 @@ $routes->group('users', ['filter' => 'auth'], static function ($routes) {
     $routes->post('update/(:num)', [UserController::class, 'update'], ['as' => 'users.update']);
 });
 
-$routes->group('roles', ['filter' => 'auth'], static function ($routes) {
+$routes->group('roles', ['filter' => ['auth', 'role:admin,gestor']], static function ($routes) {
     $routes->get('/', [RoleController::class, 'index'], ['as' => 'roles.index']);
     $routes->post('/', [RoleController::class, 'store'], ['as' => 'roles.store']);
     $routes->post('update/(:num)', [RoleController::class, 'update'], ['as' => 'roles.update']);
     $routes->post('delete/(:num)', [RoleController::class, 'destroy'], ['as' => 'roles.destroy']);
 });
 
-$routes->group('settings', ['filter' => 'auth'], static function ($routes) {
+$routes->group('settings', ['filter' => ['auth', 'role:admin,gestor']], static function ($routes) {
     $routes->get('/', [SettingsController::class, 'index'], ['as' => 'settings.index']);
 
     $routes->get('units', [UnitController::class, 'index'], ['as' => 'settings.units.index']);

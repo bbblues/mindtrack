@@ -28,6 +28,7 @@ class Filters extends BaseFilters
         'csrf'          => CSRF::class,
         'auth'          => \App\Filters\AuthFilter::class,
         'superadmin'    => \App\Filters\SuperAdminFilter::class,
+        'role'          => \App\Filters\RoleFilter::class,
         'toolbar'       => DebugToolbar::class,
         'honeypot'      => Honeypot::class,
         'invalidchars'  => InvalidChars::class,
