@@ -1,9 +1,13 @@
 <?php
 
 use App\Modules\Core\Controllers\HealthInsuranceController;
+use App\Modules\Core\Controllers\NoteTemplateController;
+use App\Modules\Core\Controllers\ReasonController;
 use App\Modules\Core\Controllers\RoleController;
+use App\Modules\Core\Controllers\RoomController;
 use App\Modules\Core\Controllers\SettingsController;
 use App\Modules\Core\Controllers\SpecialtyController;
+use App\Modules\Core\Controllers\TagController;
 use App\Modules\Core\Controllers\TenantController;
 use App\Modules\Core\Controllers\UnitController;
 use App\Modules\Core\Controllers\UserController;
@@ -54,5 +58,28 @@ $routes->group('settings', ['filter' => 'auth'], static function ($routes) {
     $routes->post('insurances', [HealthInsuranceController::class, 'store'], ['as' => 'settings.insurances.store']);
     $routes->post('insurances/update/(:num)', [HealthInsuranceController::class, 'update'], ['as' => 'settings.insurances.update']);
     $routes->post('insurances/delete/(:num)', [HealthInsuranceController::class, 'destroy'], ['as' => 'settings.insurances.destroy']);
+
+    $routes->get('rooms', [RoomController::class, 'index'], ['as' => 'settings.rooms.index']);
+    $routes->post('rooms', [RoomController::class, 'store'], ['as' => 'settings.rooms.store']);
+    $routes->post('rooms/update/(:num)', [RoomController::class, 'update'], ['as' => 'settings.rooms.update']);
+    $routes->post('rooms/delete/(:num)', [RoomController::class, 'destroy'], ['as' => 'settings.rooms.destroy']);
+
+    $routes->get('tags', [TagController::class, 'index'], ['as' => 'settings.tags.index']);
+    $routes->post('tags', [TagController::class, 'store'], ['as' => 'settings.tags.store']);
+    $routes->post('tags/update/(:num)', [TagController::class, 'update'], ['as' => 'settings.tags.update']);
+    $routes->post('tags/delete/(:num)', [TagController::class, 'destroy'], ['as' => 'settings.tags.destroy']);
+
+    $routes->get('reasons', [ReasonController::class, 'index'], ['as' => 'settings.reasons.index']);
+    $routes->post('reasons/absence', [ReasonController::class, 'storeAbsence'], ['as' => 'settings.reasons.absence.store']);
+    $routes->post('reasons/absence/update/(:num)', [ReasonController::class, 'updateAbsence'], ['as' => 'settings.reasons.absence.update']);
+    $routes->post('reasons/absence/delete/(:num)', [ReasonController::class, 'destroyAbsence'], ['as' => 'settings.reasons.absence.destroy']);
+    $routes->post('reasons/discharge', [ReasonController::class, 'storeDischarge'], ['as' => 'settings.reasons.discharge.store']);
+    $routes->post('reasons/discharge/update/(:num)', [ReasonController::class, 'updateDischarge'], ['as' => 'settings.reasons.discharge.update']);
+    $routes->post('reasons/discharge/delete/(:num)', [ReasonController::class, 'destroyDischarge'], ['as' => 'settings.reasons.discharge.destroy']);
+
+    $routes->get('note-templates', [NoteTemplateController::class, 'index'], ['as' => 'settings.note-templates.index']);
+    $routes->post('note-templates', [NoteTemplateController::class, 'store'], ['as' => 'settings.note-templates.store']);
+    $routes->post('note-templates/update/(:num)', [NoteTemplateController::class, 'update'], ['as' => 'settings.note-templates.update']);
+    $routes->post('note-templates/delete/(:num)', [NoteTemplateController::class, 'destroy'], ['as' => 'settings.note-templates.destroy']);
 });
 

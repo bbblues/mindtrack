@@ -41,53 +41,49 @@
             <p class="mt-1 text-sm text-gray-500">Planos de saúde e registros ANS.</p>
         </a>
         <!-- Salas -->
-        <div class="relative flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm opacity-70">
-            <span class="absolute right-4 top-4 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-500">Em breve</span>
-            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+        <a href="<?= site_url('settings/rooms') ?>" class="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow">
+            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
                 </svg>
             </div>
-            <h3 class="text-base font-semibold text-gray-700">Salas</h3>
-            <p class="mt-1 text-sm text-gray-400">Salas vinculadas às unidades.</p>
-        </div>
+            <h3 class="text-base font-semibold text-gray-800">Salas</h3>
+            <p class="mt-1 text-sm text-gray-500">Salas vinculadas às unidades.</p>
+        </a>
 
         <!-- Tags -->
-        <div class="relative flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm opacity-70">
-            <span class="absolute right-4 top-4 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-500">Em breve</span>
-            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+        <a href="<?= site_url('settings/tags') ?>" class="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow">
+            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
                 </svg>
             </div>
-            <h3 class="text-base font-semibold text-gray-700">Tags</h3>
-            <p class="mt-1 text-sm text-gray-400">Etiquetas coloridas para organização.</p>
-        </div>
+            <h3 class="text-base font-semibold text-gray-800">Tags</h3>
+            <p class="mt-1 text-sm text-gray-500">Etiquetas coloridas para organização.</p>
+        </a>
 
         <!-- Motivos -->
-        <div class="relative flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm opacity-70">
-            <span class="absolute right-4 top-4 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-500">Em breve</span>
-            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+        <a href="<?= site_url('settings/reasons') ?>" class="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow">
+            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                 </svg>
             </div>
-            <h3 class="text-base font-semibold text-gray-700">Motivos de Falta e Alta</h3>
-            <p class="mt-1 text-sm text-gray-400">Justificativas usadas na agenda.</p>
-        </div>
+            <h3 class="text-base font-semibold text-gray-800">Motivos de Falta e Alta</h3>
+            <p class="mt-1 text-sm text-gray-500">Justificativas usadas na agenda.</p>
+        </a>
 
         <!-- Modelos de Evolução -->
-        <div class="relative flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm opacity-70">
-            <span class="absolute right-4 top-4 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-500">Em breve</span>
-            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+        <a href="<?= site_url('settings/note-templates') ?>" class="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow">
+            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                 </svg>
             </div>
-            <h3 class="text-base font-semibold text-gray-700">Modelos de Evolução</h3>
-            <p class="mt-1 text-sm text-gray-400">Textos prontos para os atendimentos.</p>
-        </div>
+            <h3 class="text-base font-semibold text-gray-800">Modelos de Evolução</h3>
+            <p class="mt-1 text-sm text-gray-500">Textos prontos para os atendimentos.</p>
+        </a>
     </div>
 </div>
 <?= $this->endSection() ?>

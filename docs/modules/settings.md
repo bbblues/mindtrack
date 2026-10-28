@@ -19,3 +19,9 @@
 2. CRUD de Unidades.
 3. CRUD de Especialidades.
 4. CRUD de Convênios.
+
+## Prioridade de Implementação (Sprint 15 - Finalizando Configurações)
+5. CRUD de Salas (vinculadas a uma Unidade).
+6. CRUD de Tags (Nome e Cor).
+7. CRUD de Motivos de Falta e Motivos de Alta.
+8. CRUD de Modelos de Nota (Nome e Texto Padrão).
