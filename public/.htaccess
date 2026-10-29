@@ -2,6 +2,28 @@
 Options -Indexes
 
 # ----------------------------------------------------------------------
+# Security headers (defesa em profundidade)
+# ----------------------------------------------------------------------
+<IfModule mod_headers.c>
+	Header set X-Content-Type-Options "nosniff"
+	Header set X-Frame-Options "SAMEORIGIN"
+	Header set Referrer-Policy "strict-origin-when-cross-origin"
+	Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+	# Descomente quando o site estiver rodando em HTTPS para habilitar HSTS:
+	# Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Redirect HTTP -> HTTPS
+# ----------------------------------------------------------------------
+# Descomente o bloco abaixo APOS instalar o certificado SSL (Let's Encrypt).
+# <IfModule mod_rewrite.c>
+# 	RewriteEngine On
+# 	RewriteCond %{HTTPS} !=on
+# 	RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# </IfModule>
+
+# ----------------------------------------------------------------------
 # Rewrite engine
 # ----------------------------------------------------------------------
 
@@ -15,6 +37,10 @@ Options -Indexes
 	# change the following line to match the subfolder you need.
 	# http://httpd.apache.org/docs/current/mod/mod_rewrite.html#rewritebase
 	# RewriteBase /
+
+	# Bloqueia acesso a arquivos sensiveis (caso existam dentro de public/).
+	RewriteRule (^|/)\.env(/|$) - [F,L]
+	RewriteRule (^|/)\.git(/|$) - [F,L]
 
 	# Redirect Trailing Slashes...
 	RewriteCond %{REQUEST_FILENAME} !-d

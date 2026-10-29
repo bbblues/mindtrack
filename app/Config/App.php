@@ -15,6 +15,10 @@ class App extends BaseConfig
      * WITH a trailing slash:
      *
      * E.g., http://example.com/
+     *
+     * Em producao, este valor e sobrescrito automaticamente pelo .env
+     * atraves da variavel "app.baseURL". O valor definido abaixo e usado
+     * apenas como fallback quando nenhum .env esta configurado.
      */
     public string $baseURL = 'http://localhost:8080/';
 

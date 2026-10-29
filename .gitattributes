@@ -1,0 +1,10 @@
+# ----------------------------------------------------------------------
+# Normalizacao de quebras de linha (Windows x Linux)
+# ----------------------------------------------------------------------
+# Scripts shell quebram no Linux se ficarem com CRLF.
+*.sh text eol=lf
+
+# Configuracoes do Apache e de ambiente tambem devem usar LF.
+.htaccess text eol=lf
+.env text eol=lf
+.env.example text eol=lf
