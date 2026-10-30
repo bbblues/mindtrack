@@ -75,6 +75,10 @@ class UserController extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
+        if ($this->userModel->emailExists((string) $data['email'])) {
+            return redirect()->back()->withInput()->with('errors', ['email' => 'Este e-mail já está em uso.']);
+        }
+
         $data['tenant_id']      = $this->resolveTenantId();
         $data['is_super_admin'] = $this->resolveIsSuperAdmin();
 
@@ -114,17 +118,17 @@ class UserController extends BaseController
             return redirect()->to(site_url('users'))->with('error', 'Usuário não encontrado.');
         }
 
-        $data       = $this->userDataFromRequest(true);
-        $data['id'] = (int) $id; // o is_unique usa {id} para ignorar o proprio registro
+        $data = $this->userDataFromRequest(true);
 
-        $rules       = $this->userModel->getValidationRules();
-        $rules['id'] = 'required|is_natural_no_zero';
+        $rules = $this->userModel->getValidationRules();
 
         if (! $this->validateData($data, $rules, $this->userModel->getValidationMessages())) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        unset($data['id']);
+        if ($this->userModel->emailExists((string) $data['email'], (int) $id)) {
+            return redirect()->back()->withInput()->with('errors', ['email' => 'Este e-mail já está em uso.']);
+        }
 
         $data['tenant_id']      = $this->resolveTenantId();
         $data['is_super_admin'] = $this->resolveIsSuperAdmin();

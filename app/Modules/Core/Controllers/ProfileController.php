@@ -60,13 +60,9 @@ class ProfileController extends BaseController
             }
         }
 
-        // O {id} do is_unique usa o valor de "id" presente em $data.
-        $data['id'] = $userId;
-
         $rules = [
-            'id'               => 'permit_empty|integer',
             'name'             => 'required|max_length[255]',
-            'email'            => 'required|valid_email|max_length[255]|is_unique[users.email,id,{id}]',
+            'email'            => 'required|valid_email|max_length[255]',
             'current_password' => 'required',
             'password'         => 'permit_empty|min_length[8]',
             'password_confirm' => 'matches[password]',
@@ -79,7 +75,6 @@ class ProfileController extends BaseController
             'email' => [
                 'required'    => 'Informe o seu e-mail.',
                 'valid_email' => 'Informe um e-mail válido.',
-                'is_unique'   => 'Este e-mail já está em uso.',
             ],
             'current_password' => [
                 'required' => 'Informe a senha atual para confirmar as alterações.',
@@ -96,6 +91,10 @@ class ProfileController extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
+        if ($this->userModel->emailExists((string) $data['email'], $userId)) {
+            return redirect()->back()->withInput()->with('errors', ['email' => 'Este e-mail já está em uso.']);
+        }
+
         if (! isset($user['password']) || ! password_verify((string) $data['current_password'], $user['password'])) {
             return redirect()->back()->withInput()->with('errors', ['current_password' => 'A senha atual informada está incorreta.']);
         }
@@ -108,11 +107,6 @@ class ProfileController extends BaseController
         if ($data['password'] !== null && $data['password'] !== '') {
             $payload['password'] = $data['password'];
         }
-
-        // A unicidade do e-mail ja foi validada acima com o {id} resolvido.
-        // Removemos o is_unique da validacao interna do Model para que o
-        // update nao rode a regra sem o id (o que reprovaria o proprio e-mail).
-        $this->userModel->setValidationRule('email', 'required|valid_email|max_length[255]');
 
         if (! $this->userModel->update($userId, $payload)) {
             return redirect()->back()->withInput()->with('errors', $this->userModel->errors());

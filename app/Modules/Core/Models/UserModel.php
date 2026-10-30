@@ -15,15 +15,12 @@ class UserModel extends BaseModel
 
     protected $validationRules = [
         'name'     => 'required|max_length[255]',
-        'email'    => 'required|valid_email|max_length[255]|is_unique[users.email,id,{id}]',
+        'email'    => 'required|valid_email|max_length[255]',
         'password' => 'permit_empty|min_length[8]',
         'unit_id'  => 'permit_empty|integer',
     ];
 
     protected $validationMessages = [
-        'email' => [
-            'is_unique' => 'Este e-mail ja esta em uso.',
-        ],
         'unit_id' => [
             'integer' => 'Selecione uma unidade valida.',
         ],
@@ -39,6 +36,27 @@ class UserModel extends BaseModel
         }
 
         return $data;
+    }
+
+    /**
+     * Verifica se ja existe um usuario ativo com o e-mail informado.
+     *
+     * Consulta a tabela diretamente para ignorar o tenant scope do BaseModel
+     * (a unicidade do e-mail de login e global) e para ignorar registros
+     * removidos via soft delete. Permite excluir o proprio registro na edicao.
+     */
+    public function emailExists(string $email, ?int $excludeId = null): bool
+    {
+        $builder = $this->db->table('users')
+            ->select('1')
+            ->where('email', $email)
+            ->where('deleted_at', null);
+
+        if ($excludeId !== null) {
+            $builder->where('id !=', $excludeId);
+        }
+
+        return $builder->get()->getRow() !== null;
     }
 
     /**
