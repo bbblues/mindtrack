@@ -46,6 +46,7 @@ class UserController extends BaseController
 
         return view('App\Modules\Core\Views\users\index', [
             'title'       => 'Usuários',
+            'basePath'    => $this->basePath(),
             'users'       => $users,
             'rolesByUser' => $rolesByUser,
             'pager'       => $this->userModel->pager,
@@ -90,7 +91,7 @@ class UserController extends BaseController
 
         $this->roleUserModel->syncRoles((int) $userId, (array) ($this->request->getPost('roles') ?? []));
 
-        return redirect()->to(site_url('users'))->with('success', 'Usuário criado com sucesso.');
+        return redirect()->to(site_url($this->basePath()))->with('success', 'Usuário criado com sucesso.');
     }
 
     /**
@@ -101,7 +102,7 @@ class UserController extends BaseController
         $user = $this->userModel->find((int) $id);
 
         if ($user === null) {
-            return redirect()->to(site_url('users'))->with('error', 'Usuário não encontrado.');
+            return redirect()->to(site_url($this->basePath()))->with('error', 'Usuário não encontrado.');
         }
 
         return view('App\Modules\Core\Views\users\form', $this->formData($user));
@@ -115,7 +116,7 @@ class UserController extends BaseController
         $user = $this->userModel->find((int) $id);
 
         if ($user === null) {
-            return redirect()->to(site_url('users'))->with('error', 'Usuário não encontrado.');
+            return redirect()->to(site_url($this->basePath()))->with('error', 'Usuário não encontrado.');
         }
 
         $data = $this->userDataFromRequest(true);
@@ -139,7 +140,7 @@ class UserController extends BaseController
 
         $this->roleUserModel->syncRoles((int) $id, (array) ($this->request->getPost('roles') ?? []));
 
-        return redirect()->to(site_url('users'))->with('success', 'Usuário atualizado com sucesso.');
+        return redirect()->to(site_url($this->basePath()))->with('success', 'Usuário atualizado com sucesso.');
     }
 
     /**
@@ -157,6 +158,7 @@ class UserController extends BaseController
 
         return [
             'title'           => $user === null ? 'Novo Usuário' : 'Editar Usuário',
+            'basePath'        => $this->basePath(),
             'user'            => $user,
             'units'           => $this->unitModel->orderBy('name', 'ASC')->findAll(),
             'roles'           => $this->roleModel->rolesForTenant($this->roleTenantIdForForm($user)),
@@ -191,6 +193,20 @@ class UserController extends BaseController
         $data['unit_id']   = ($data['unit_id'] ?? null) !== null ? (int) $data['unit_id'] : null;
 
         return $data;
+    }
+
+    /**
+     * Base das URLs do modulo na requisicao atual.
+     *
+     * Permite o mesmo controller atender tanto /users (atalho da sidebar)
+     * quanto /settings/users (card dentro do hub de configuracoes), mantendo
+     * links, redirects e actions no contexto em que o usuario esta navegando.
+     */
+    private function basePath(): string
+    {
+        $path = trim($this->request->getPath(), '/');
+
+        return str_starts_with($path, 'settings/users') ? 'settings/users' : 'users';
     }
 
     /**

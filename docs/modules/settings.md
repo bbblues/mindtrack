@@ -1,6 +1,8 @@
 # Módulo de Configurações Avançadas (Settings)
 
 ## Entidades Gerenciáveis
+- `users`: Usuários da clínica (equipe, login, unidade e cargos).
+- `roles`: Cargos/papéis de acesso atribuídos aos usuários.
 - `units`: Unidades da clínica.
 - `specialties`: Especialidades (Fono, Psico, etc).
 - `health_insurances`: Convênios.
@@ -13,6 +15,7 @@
 1. **Isolamento Multi-Tenant:** Todos os cadastros DEVEM ser vinculados ao `tenant_id` do usuário logado. Um usuário da Clínica A não pode ver os cadastros da Clínica B.
 2. **Interface Central:** Uma tela de "Configurações" com um grid de cards visuais (como no sistema de referência). Ao clicar em um card, abre-se a tela de gestão daquele item.
 3. **CRUD Rápido:** Os cadastros são simples (geralmente só Nome/Cor). Devem usar modais com Alpine.js e Fetch API para criar/editar sem recarregar a página.
+4. **Equipe e Acessos:** A gestão de usuários e de cargos também é acessada pelo hub de configurações, pelos cards "Usuários" (`/settings/users`) e "Cargos e Papéis" (`/settings/roles`). Os controllers reaproveitam as mesmas telas de `/users` e `/roles`, mantendo links, actions e redirects no contexto em que o usuário está navegando.
 
 ## Prioridade de Implementação (Para este Sprint)
 1. Tela Central (`/settings`).

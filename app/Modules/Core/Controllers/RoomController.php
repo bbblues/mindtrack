@@ -226,7 +226,7 @@ class RoomController extends BaseController
             'success'    => true,
             'message'    => $message,
             'room'       => $room,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 
@@ -239,7 +239,7 @@ class RoomController extends BaseController
             'success'    => false,
             'message'    => $message,
             'errors'     => $errors,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 }

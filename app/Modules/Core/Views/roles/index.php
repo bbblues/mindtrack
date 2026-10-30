@@ -95,7 +95,7 @@ function rolesPage(initialRoles) {
         formError: null,
         pageError: null,
         saving: false,
-        csrf: <?= json_encode(csrf_token()) ?>,
+        csrf: <?= json_encode(csrf_hash()) ?>,
 
         openCreate() {
             this.editingId = null;
@@ -120,8 +120,8 @@ function rolesPage(initialRoles) {
             this.saving = true;
 
             const url = this.editingId
-                ? <?= json_encode(site_url('roles/update/')) ?> + this.editingId
-                : <?= json_encode(site_url('roles')) ?>;
+                ? <?= json_encode(site_url($basePath . '/update/')) ?> + this.editingId
+                : <?= json_encode(site_url($basePath)) ?>;
 
             const params = new URLSearchParams();
             params.set('name', this.name);
@@ -176,7 +176,7 @@ function rolesPage(initialRoles) {
             this.pageError = null;
 
             try {
-                const res = await fetch(<?= json_encode(site_url('roles/delete/')) ?> + role.id, {
+                const res = await fetch(<?= json_encode(site_url($basePath . '/delete/')) ?> + role.id, {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': this.csrf,

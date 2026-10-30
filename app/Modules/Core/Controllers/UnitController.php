@@ -187,7 +187,7 @@ class UnitController extends BaseController
             'success'    => true,
             'message'    => $message,
             'unit'       => $unit,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 
@@ -200,7 +200,7 @@ class UnitController extends BaseController
             'success'    => false,
             'message'    => $message,
             'errors'     => $errors,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 }

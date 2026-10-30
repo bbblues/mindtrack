@@ -164,7 +164,7 @@ class SpecialtyController extends BaseController
             'success'    => true,
             'message'    => $message,
             'specialty'  => $specialty,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 
@@ -177,7 +177,7 @@ class SpecialtyController extends BaseController
             'success'    => false,
             'message'    => $message,
             'errors'     => $errors,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 }

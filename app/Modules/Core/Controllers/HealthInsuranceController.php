@@ -184,7 +184,7 @@ class HealthInsuranceController extends BaseController
             'success'    => true,
             'message'    => $message,
             'insurance'  => $insurance,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 
@@ -197,7 +197,7 @@ class HealthInsuranceController extends BaseController
             'success'    => false,
             'message'    => $message,
             'errors'     => $errors,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 }

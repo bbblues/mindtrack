@@ -5,7 +5,7 @@
 <?php
 $isEdit = $user !== null;
 $u = $user ?? [];
-$formAction = $isEdit ? site_url('users/update/' . (int) $u['id']) : site_url('users');
+$formAction = $isEdit ? site_url($basePath . '/update/' . (int) $u['id']) : site_url($basePath);
 $selectedUnitId = (string) old('unit_id', $u['unit_id'] ?? '');
 $selectedTenantId = (string) old('tenant_id', $u['tenant_id'] ?? '');
 $selectedRoleIds = array_map('intval', $selectedRoleIds);
@@ -17,7 +17,7 @@ $selectedRoleIds = array_map('intval', $selectedRoleIds);
             <h2 class="text-xl font-semibold text-gray-800"><?= esc($title) ?></h2>
             <p class="mt-1 text-sm text-gray-500">Preencha os dados do usuário e selecione os cargos.</p>
         </div>
-        <a href="<?= site_url('users') ?>" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Voltar</a>
+        <a href="<?= site_url($basePath) ?>" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Voltar</a>
     </div>
 
     <?php $validationErrors = session('errors'); ?>
@@ -121,7 +121,7 @@ $selectedRoleIds = array_map('intval', $selectedRoleIds);
         </div>
 
         <div class="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
-            <a href="<?= site_url('users') ?>" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Cancelar</a>
+            <a href="<?= site_url($basePath) ?>" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Cancelar</a>
             <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">Salvar</button>
         </div>
     </form>

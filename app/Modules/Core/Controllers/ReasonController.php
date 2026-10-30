@@ -200,7 +200,7 @@ class ReasonController extends BaseController
             'success'    => true,
             'message'    => $message,
             'reason'     => $reason,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 
@@ -213,7 +213,7 @@ class ReasonController extends BaseController
             'success'    => false,
             'message'    => $message,
             'errors'     => $errors,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 }

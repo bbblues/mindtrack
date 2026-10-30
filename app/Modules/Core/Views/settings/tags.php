@@ -98,7 +98,7 @@ function tagsPage(initialTags) {
         formError: null,
         pageError: null,
         saving: false,
-        csrf: <?= json_encode(csrf_token()) ?>,
+        csrf: <?= json_encode(csrf_hash()) ?>,
 
         openCreate() {
             this.editingId = null;

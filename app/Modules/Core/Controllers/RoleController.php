@@ -26,6 +26,7 @@ class RoleController extends BaseController
 
         return view('App\Modules\Core\Views\roles\index', [
             'title'    => 'Cargos e Papéis',
+            'basePath' => $this->basePath(),
             'roleRows' => $roleRows,
         ]);
     }
@@ -153,6 +154,19 @@ class RoleController extends BaseController
         ];
     }
 
+    /**
+     * Base das URLs do modulo na requisicao atual.
+     *
+     * Mantem o CRUD de cargos funcionando tanto em /roles quanto em
+     * /settings/roles (card dentro do hub de configuracoes).
+     */
+    private function basePath(): string
+    {
+        $path = trim($this->request->getPath(), '/');
+
+        return str_starts_with($path, 'settings/roles') ? 'settings/roles' : 'roles';
+    }
+
     private function currentTenantId(): ?int
     {
         return is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
@@ -202,7 +216,7 @@ class RoleController extends BaseController
             'success'    => true,
             'message'    => $message,
             'role'       => $role,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 
@@ -215,7 +229,7 @@ class RoleController extends BaseController
             'success'    => false,
             'message'    => $message,
             'errors'     => $errors,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 }

@@ -44,6 +44,18 @@ $routes->group('roles', ['filter' => ['auth', 'role:admin,gestor']], static func
 $routes->group('settings', ['filter' => ['auth', 'role:admin,gestor']], static function ($routes) {
     $routes->get('/', [SettingsController::class, 'index'], ['as' => 'settings.index']);
 
+    // Equipe e acessos (mesmos controllers de /users e /roles, dentro do hub de configuracoes).
+    $routes->get('users', [UserController::class, 'index'], ['as' => 'settings.users.index']);
+    $routes->get('users/create', [UserController::class, 'create'], ['as' => 'settings.users.create']);
+    $routes->post('users', [UserController::class, 'store'], ['as' => 'settings.users.store']);
+    $routes->get('users/edit/(:num)', [UserController::class, 'edit'], ['as' => 'settings.users.edit']);
+    $routes->post('users/update/(:num)', [UserController::class, 'update'], ['as' => 'settings.users.update']);
+
+    $routes->get('roles', [RoleController::class, 'index'], ['as' => 'settings.roles.index']);
+    $routes->post('roles', [RoleController::class, 'store'], ['as' => 'settings.roles.store']);
+    $routes->post('roles/update/(:num)', [RoleController::class, 'update'], ['as' => 'settings.roles.update']);
+    $routes->post('roles/delete/(:num)', [RoleController::class, 'destroy'], ['as' => 'settings.roles.destroy']);
+
     $routes->get('units', [UnitController::class, 'index'], ['as' => 'settings.units.index']);
     $routes->post('units', [UnitController::class, 'store'], ['as' => 'settings.units.store']);
     $routes->post('units/update/(:num)', [UnitController::class, 'update'], ['as' => 'settings.units.update']);

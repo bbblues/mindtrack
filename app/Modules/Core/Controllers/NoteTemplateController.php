@@ -192,7 +192,7 @@ class NoteTemplateController extends BaseController
             'success'    => true,
             'message'    => $message,
             'template'   => $template,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 
@@ -205,7 +205,7 @@ class NoteTemplateController extends BaseController
             'success'    => false,
             'message'    => $message,
             'errors'     => $errors,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 }

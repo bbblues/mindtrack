@@ -179,7 +179,7 @@ class TagController extends BaseController
             'success'    => true,
             'message'    => $message,
             'tag'        => $tag,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 
@@ -192,7 +192,7 @@ class TagController extends BaseController
             'success'    => false,
             'message'    => $message,
             'errors'     => $errors,
-            'csrf_token' => csrf_token(),
+            'csrf_token' => csrf_hash(),
         ]);
     }
 }

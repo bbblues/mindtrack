@@ -7,7 +7,7 @@
             <h2 class="text-xl font-semibold text-gray-800">Usuários</h2>
             <p class="mt-1 text-sm text-gray-500">Gerencie os usuários e cargos da sua clínica.</p>
         </div>
-        <a href="<?= site_url('users/create') ?>" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+        <a href="<?= site_url($basePath . '/create') ?>" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
             </svg>
@@ -23,7 +23,7 @@
         <div class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><?= esc(session('error')) ?></div>
     <?php endif; ?>
 
-    <form method="get" action="<?= site_url('users') ?>" class="flex flex-wrap items-center gap-2">
+    <form method="get" action="<?= site_url($basePath) ?>" class="flex flex-wrap items-center gap-2">
         <input
             type="search"
             name="search"
@@ -33,7 +33,7 @@
         >
         <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">Buscar</button>
         <?php if ($search !== ''): ?>
-            <a href="<?= site_url('users') ?>" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Limpar</a>
+            <a href="<?= site_url($basePath) ?>" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Limpar</a>
         <?php endif; ?>
     </form>
 
@@ -47,7 +47,7 @@
                 </div>
                 <h3 class="text-lg font-semibold text-gray-800">Nenhum usuário cadastrado</h3>
                 <p class="mt-1 text-sm text-gray-500">Cadastre o primeiro usuário para dar acesso à sua equipe.</p>
-                <a href="<?= site_url('users/create') ?>" class="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">+ Adicionar Usuário</a>
+                <a href="<?= site_url($basePath . '/create') ?>" class="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">+ Adicionar Usuário</a>
             </div>
         <?php else: ?>
             <div class="overflow-x-auto">
@@ -94,7 +94,7 @@
                                     <?php endif; ?>
                                 </td>
                                 <td class="px-6 py-4 text-right">
-                                    <a href="<?= site_url('users/edit/' . $userId) ?>" class="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Editar</a>
+                                    <a href="<?= site_url($basePath . '/edit/' . $userId) ?>" class="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Editar</a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
