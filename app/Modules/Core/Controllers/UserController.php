@@ -117,7 +117,10 @@ class UserController extends BaseController
         $data       = $this->userDataFromRequest(true);
         $data['id'] = (int) $id; // o is_unique usa {id} para ignorar o proprio registro
 
-        if (! $this->validateData($data, $this->userModel->getValidationRules(), $this->userModel->getValidationMessages())) {
+        $rules       = $this->userModel->getValidationRules();
+        $rules['id'] = 'required|is_natural_no_zero';
+
+        if (! $this->validateData($data, $rules, $this->userModel->getValidationMessages())) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
