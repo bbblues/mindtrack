@@ -3,6 +3,7 @@
 namespace App\Modules\Patients\Models;
 
 use App\Models\BaseModel;
+use App\Modules\Patients\Libraries\PatientColor;
 
 class PatientModel extends BaseModel
 {
@@ -29,6 +30,7 @@ class PatientModel extends BaseModel
         'neighborhood',
         'city',
         'state',
+        'color',
     ];
 
     protected $validationRules = [
@@ -51,6 +53,7 @@ class PatientModel extends BaseModel
         'neighborhood'     => 'permit_empty|max_length[255]',
         'city'             => 'permit_empty|max_length[255]',
         'state'            => 'permit_empty|exact_length[2]|alpha',
+        'color'            => 'permit_empty|regex_match[/^#[0-9A-Fa-f]{6}$/]',
     ];
 
     protected $validationMessages = [
@@ -108,5 +111,56 @@ class PatientModel extends BaseModel
         }
 
         return $this->orderBy('patients.name', 'ASC')->paginate(10);
+    }
+
+    /**
+     * Atribui uma cor da paleta ao novo paciente do tenant.
+     *
+     * Prioriza cores ainda nao usadas por pacientes ATIVOS do tenant.
+     * Quando todas as 30 estiverem em uso, reinicia o ciclo escolhendo
+     * a cor menos usada (empate resolvido de forma aleatoria).
+     */
+    public function assignColorForTenant(?int $tenantId): string
+    {
+        $palette = PatientColor::getPalette();
+        $usage   = [];
+
+        if ($tenantId !== null) {
+            $rows = $this->db->table($this->table)
+                ->select('color')
+                ->where('tenant_id', $tenantId)
+                ->where('is_active', 1)
+                ->where('color IS NOT NULL')
+                ->where('deleted_at IS NULL')
+                ->get()
+                ->getResultArray();
+
+            foreach ($rows as $row) {
+                $color = strtoupper((string) ($row['color'] ?? ''));
+                if ($color === '') {
+                    continue;
+                }
+
+                $usage[$color] = ($usage[$color] ?? 0) + 1;
+            }
+        }
+
+        $available = array_values(array_filter(
+            $palette,
+            static fn (string $color): bool => ! array_key_exists(strtoupper($color), $usage)
+        ));
+
+        if ($available !== []) {
+            return $available[array_rand($available)];
+        }
+
+        // Todas as cores estao em uso: reinicia o ciclo pela menos usada.
+        $minCount  = min($usage);
+        $leastUsed = array_values(array_filter(
+            $palette,
+            static fn (string $color): bool => ($usage[strtoupper($color)] ?? 0) === $minCount
+        ));
+
+        return $leastUsed[array_rand($leastUsed)];
     }
 }

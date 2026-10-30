@@ -1,22 +1,17 @@
 # Módulo de Agenda (Appointments)
 
-## Entidades
-- `appointments`: O agendamento em si.
-- `professional_schedules`: A disponibilidade de trabalho do profissional.
-
-## Campos do Agendamento
-- **Vínculos:** `patient_id` (FK), `professional_id` (FK), `room_id` (FK, nullable), `unit_id` (FK).
-- **Tempo:** `start_time` (datetime), `end_time` (datetime).
-- **Status:** Enum ('agendado', 'confirmado', 'realizado', 'falta_paciente', 'falta_profissional', 'cancelado'). Padrão: 'agendado'.
-- **Recorrência:** `is_recurring` (boolean), `recurrence_group_id` (string/uuid, nullable) para agrupar os agendamentos gerados juntos.
-- **Observações:** `notes` (text).
-
 ## Regras de Negócio CRÍTICAS
-1. **Soft Validation (Conflito de Horário):** Se o profissional já tiver um agendamento no mesmo horário, o sistema NÃO deve bloquear o salvamento. Ele deve retornar um aviso (JSON 409) com os detalhes do conflito, e o frontend deve exibir um modal perguntando: "Deseja continuar mesmo assim?". Se o usuário confirmar, o frontend envia um parâmetro `force_override = true` e o backend salva.
-2. **Recorrência:** Ao criar um agendamento recorrente (ex: semanal), o sistema deve gerar registros individuais no banco de dados para cada dia (não usar eventos virtuais). Todos devem compartilhar o mesmo `recurrence_group_id`.
-3. **Duração Padrão:** O sistema deve ler uma configuração global (ou da unidade) para pré-preencher a hora de fim (ex: 40 minutos). O usuário pode alterar.
-4. **Interface (Frontend):** 
-   - Visualização em Semana e Dia (Grid). 
-   - Cards coloridos de acordo com o status (Ex: Azul=Agendado, Verde=Confirmado/Realizado, Vermelho=Falta).
-   - As cores devem ser aplicadas via classes CSS do Tailwind.
-   - Deve ser implementado Drag-and-Drop para mover os cards de horário/profissional usando a biblioteca SortableJS (via CDN).
+1. **Soft Validation (Conflito de Horário):** Se o profissional já tiver um agendamento no mesmo horário, o sistema NÃO deve bloquear o salvamento. Ele deve retornar um aviso (JSON 409) e o frontend deve exibir um modal de confirmação (force_override).
+2. **Recorrência:** Agendamentos recorrentes devem ser salvos como registros individuais no banco, compartilhando o mesmo `recurrence_group_id`.
+3. **Duração Padrão:** A hora de fim é calculada com base em uma configuração global (ex: 40 min), mas pode ser alterada.
+
+## Interface e Visualização (NOVO)
+1. **Biblioteca:** Usar DayPilot Lite (ou DHTMLX Scheduler) via CDN. O FullCalendar não será mais usado.
+2. **Visões:**
+   - **Visão Dia:** Colunas representam os Profissionais. Linhas representam os Horários (ex: 08:00, 08:30).
+   - **Visão Semana:** Linhas representam os Profissionais. Colunas representam os dias da semana (Seg a Dom).
+   - A visão "Mês" deve ser removida.
+3. **Cores do Paciente:** O fundo do card de agendamento deve ser a cor do paciente (cadastrada no módulo de Pacientes).
+4. **Contraste do Texto:** A cor do texto do card deve ser preta ou branca, calculada dinamicamente com base na luminosidade da cor do paciente, para garantir leitura.
+5. **Ordenação de Profissionais:** As colunas (visão dia) ou linhas (visão semana) devem permitir Drag-and-Drop para reordenar os profissionais. Essa ordem deve ser salva globalmente no banco de dados para a clínica.
+6. **Drag-and-Drop de Agendamentos:** Os cards de agendamento podem ser arrastados para outros horários/dias/profissionais, passando pela Soft Validation.

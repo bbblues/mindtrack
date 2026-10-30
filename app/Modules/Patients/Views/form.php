@@ -81,6 +81,12 @@ $milestoneIcons = $milestoneIcons ?? [];
                             <option value="0" <?= (int) old('is_active', $p['is_active'] ?? 1) === 0 ? 'selected' : '' ?>>Inativo</option>
                         </select>
                     </div>
+                    <?php if ($isEdit): ?>
+                    <div>
+                        <label for="color" class="mb-1 block text-sm font-medium text-gray-700">Cor</label>
+                        <input type="color" id="color" name="color" value="<?= esc(old('color', $p['color'] ?? '#3b82f6')) ?>" class="h-10 w-full cursor-pointer rounded-lg border border-gray-300 px-1 py-1 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                    </div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="mt-6 border-t border-gray-200 pt-5">

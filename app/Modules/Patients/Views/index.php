@@ -91,7 +91,12 @@ $formatDate = static function (?string $date): string {
                     <tbody class="divide-y divide-gray-100">
                         <?php foreach ($patients as $patient): ?>
                             <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-3 font-medium text-gray-800"><?= esc($patient['name']) ?></td>
+                                <td class="px-4 py-3 font-medium text-gray-800">
+                                    <span class="inline-flex items-center gap-2">
+                                        <span class="inline-block h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-black/10" style="background-color: <?= esc($patient['color'] ?? '#cbd5e1') ?>;"></span>
+                                        <?= esc($patient['name']) ?>
+                                    </span>
+                                </td>
                                 <td class="px-4 py-3 text-gray-600"><?= esc($maskCpf($patient['cpf'] ?? null)) ?></td>
                                 <td class="px-4 py-3 text-gray-600"><?= esc($formatDate($patient['birth_date'] ?? null)) ?></td>
                                 <td class="px-4 py-3 text-gray-600"><?= esc($patient['unit_name'] ?? '—') ?></td>

@@ -16,3 +16,8 @@
 2. **Responsáveis:** Um paciente pode ter múltiplos responsáveis (marcar um como Principal e um como Financeiro).
 3. **Obrigatoriedade:** Nome, Data de Nascimento e Unidade são obrigatórios.
 4. **Interface:** Tabela com busca (nome/cpf), filtros e paginação. O formulário deve usar Abas (Tabs) para organizar Pessoal, Clínico, Endereço e Responsáveis.
+
+## Identificação Visual (Cores)
+- Cada paciente deve ter uma cor (`color` - string HEX) para identificação visual na Agenda.
+- **Regra de Atribuição:** Ao criar um paciente, o sistema sorteia uma cor de uma paleta fixa de 30 cores contrastantes. O sistema deve priorizar cores que ainda não estão em uso naquela clínica (tenant).
+- **Edição:** A cor pode ser alterada manualmente por qualquer usuário com permissão de edição de paciente, usando um `<input type="color">` no formulário.

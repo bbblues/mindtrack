@@ -101,6 +101,9 @@ class PatientController extends BaseController
             $data['tenant_id'] = $tenantId;
         }
 
+        // Sprint 1: atribui automaticamente uma cor da paleta no cadastro.
+        $data['color'] = $this->patientModel->assignColorForTenant($tenantId);
+
         $patientId = $this->patientModel->insert($data);
 
         if ($patientId === false) {
@@ -172,6 +175,11 @@ class PatientController extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
+        // Se a cor nao veio no formulario (campo ausente), preserva a atual.
+        if (($data['color'] ?? null) === null) {
+            unset($data['color']);
+        }
+
         if (! $this->patientModel->update((int) $id, $data)) {
             return redirect()->back()->withInput()->with('errors', $this->patientModel->errors());
         }
@@ -238,6 +246,7 @@ class PatientController extends BaseController
             'neighborhood',
             'city',
             'state',
+            'color',
         ]);
 
         $data['cpf']       = $this->onlyDigits($data['cpf'] ?? '');
