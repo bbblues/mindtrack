@@ -58,9 +58,20 @@ $formatDate = static function (?string $date): string {
             class="min-w-[240px] flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
         >
         <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">Buscar</button>
-        <?php if ($search !== ''): ?>
+        <?php if ($search !== '' || $showInactive): ?>
             <a href="<?= site_url('patients') ?>" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Limpar</a>
         <?php endif; ?>
+        <label class="ml-auto inline-flex cursor-pointer select-none items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700">
+            <input
+                type="checkbox"
+                name="show_inactive"
+                value="1"
+                <?= $showInactive ? 'checked' : '' ?>
+                onchange="this.form.submit()"
+                class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            >
+            Mostrar Inativos
+        </label>
     </form>
     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <?php if ($patients === []): ?>
@@ -133,7 +144,7 @@ $formatDate = static function (?string $date): string {
 
             <?php if ($pager->getPageCount() > 1): ?>
                 <div class="border-t border-gray-200 px-4 py-3">
-                    <?= $pager->links() ?>
+                    <?= $pager->links('default', 'tailwind_full') ?>
                 </div>
             <?php endif; ?>
         <?php endif; ?>

@@ -92,7 +92,7 @@ class PatientModel extends BaseModel
      *
      * @return array<int, array<string, mixed>>
      */
-    public function paginateWithCatalogs(?string $search = null): array
+    public function paginateWithCatalogs(?string $search = null, bool $showInactive = false): array
     {
         $this
             ->select('patients.*, units.name AS unit_name, health_insurances.name AS insurance_name')
@@ -100,7 +100,9 @@ class PatientModel extends BaseModel
             ->join('health_insurances', 'health_insurances.id = patients.health_insurance_id', 'left');
 
         $search = trim((string) $search);
+
         if ($search !== '') {
+            // Busca Global: com termo ativo, ignora o filtro de inativos.
             $normalizedCpf = preg_replace('/\D/', '', $search) ?: $search;
 
             $this
@@ -108,9 +110,12 @@ class PatientModel extends BaseModel
                 ->like('patients.name', $search)
                 ->orLike('patients.cpf', $normalizedCpf)
                 ->groupEnd();
+        } elseif (! $showInactive) {
+            // Padrao: lista apenas pacientes ativos.
+            $this->where('patients.is_active', 1);
         }
 
-        return $this->orderBy('patients.name', 'ASC')->paginate(10);
+        return $this->orderBy('patients.name', 'ASC')->paginate(50);
     }
 
     /**

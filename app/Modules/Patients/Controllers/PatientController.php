@@ -53,16 +53,18 @@ class PatientController extends BaseController
      */
     public function index(): string
     {
-        $search = trim((string) $this->request->getGet('search'));
+        $search       = trim((string) $this->request->getGet('search'));
+        $showInactive = (string) $this->request->getGet('show_inactive') === '1';
 
-        $patients = $this->patientModel->paginateWithCatalogs($search);
+        $patients = $this->patientModel->paginateWithCatalogs($search, $showInactive);
 
         return view('App\Modules\Patients\Views\index', [
-            'title'     => 'Pacientes',
-            'patients'  => $patients,
-            'protocols' => $this->protocolModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll(),
-            'pager'     => $this->patientModel->pager,
-            'search'    => $search,
+            'title'        => 'Pacientes',
+            'patients'     => $patients,
+            'protocols'    => $this->protocolModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll(),
+            'pager'        => $this->patientModel->pager,
+            'search'       => $search,
+            'showInactive' => $showInactive,
         ]);
     }
 
