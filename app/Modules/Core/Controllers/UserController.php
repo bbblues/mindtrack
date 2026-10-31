@@ -82,6 +82,7 @@ class UserController extends BaseController
 
         $data['tenant_id']      = $this->resolveTenantId();
         $data['is_super_admin'] = $this->resolveIsSuperAdmin();
+        $data['agenda_order']   = $this->userModel->nextAgendaOrder($data['tenant_id']);
 
         $userId = $this->userModel->insert($data);
 

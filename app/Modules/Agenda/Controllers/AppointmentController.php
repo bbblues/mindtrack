@@ -49,7 +49,16 @@ class AppointmentController extends BaseController
         return view('App\Modules\Agenda\Views\index', [
             'title'           => 'Agenda',
             'date'            => $date,
-            'professionals'   => $this->userModel->where('is_active', 1)->orderBy('agenda_order', 'ASC')->orderBy('name', 'ASC')->findAll(),
+            'professionals'   => $this->userModel
+                ->select('users.*')
+                ->distinct()
+                ->join('role_user', 'role_user.user_id = users.id')
+                ->join('roles', 'roles.id = role_user.role_id')
+                ->where('roles.slug', 'profissional')
+                ->where('users.is_active', 1)
+                ->orderBy('users.agenda_order', 'ASC')
+                ->orderBy('users.name', 'ASC')
+                ->findAll(),
             'patients'        => $this->patientModel->orderBy('name', 'ASC')->findAll(),
             'units'           => $this->unitModel->orderBy('name', 'ASC')->findAll(),
             'rooms'           => $this->roomModel->orderBy('name', 'ASC')->findAll(),

@@ -11,43 +11,74 @@ use App\Modules\Core\Models\TenantModel;
 use App\Modules\Core\Models\UnitModel;
 use App\Modules\Core\Models\UserModel;
 use App\Modules\Evolutions\Models\SessionEvolutionModel;
+use App\Modules\Patients\Libraries\PatientColor;
 use App\Modules\Patients\Models\PatientModel;
-use App\Modules\Protocols\Models\ProtocolItemModel;
-use App\Modules\Protocols\Models\ProtocolLevelModel;
-use App\Modules\Protocols\Models\ProtocolModel;
-use App\Modules\Protocols\Models\ProtocolSkillModel;
 use CodeIgniter\Database\Seeder;
 use DateTimeImmutable;
+use Faker\Factory;
+use Faker\Generator;
 use RuntimeException;
 
 class DemoDataSeeder extends Seeder
 {
-    private const DEMO_SLUG = 'clinica-teste';
+    private const DEMO_SLUG   = 'clinica-teste';
+    private const ADMIN_EMAIL = 'admin@clinica-teste.com';
 
     public function run()
     {
-        if ($this->demoTenantExists()) {
-            echo "Demo data já existe (tenant '" . self::DEMO_SLUG . "'). Nada a fazer." . PHP_EOL;
+        if (ENVIRONMENT === 'production') {
+            echo "Bloqueado em produção.\n";
 
             return;
         }
 
-        $tenantId     = $this->seedTenant();
-        $unitId       = $this->seedUnit($tenantId);
-        $roomIds      = $this->seedRooms($tenantId, $unitId);
-        $users        = $this->seedUsers($tenantId, $unitId);
-        $patientIds   = $this->seedPatients($tenantId, $unitId);
-        $this->seedProtocol($tenantId);
-        $appointments = $this->seedAppointments($tenantId, $unitId, $roomIds, $users['professionals'], $patientIds);
-        $this->seedEvolutions($tenantId, $appointments);
+        $tenantId = $this->demoTenantId();
 
-        echo 'Demo data criada com sucesso.' . PHP_EOL;
-        echo 'Login: admin@clinica-teste.com / password' . PHP_EOL;
+        if ($tenantId === null) {
+            $faker = Factory::create('pt_BR');
+            $faker->seed(123456);
+
+            $tenantId      = $this->seedTenant();
+            $unitId        = $this->seedUnit($tenantId);
+            $roomIds       = $this->seedRooms($tenantId, $unitId);
+            $professionals = $this->seedProfessionals($tenantId, $unitId, $faker);
+            $patientIds    = $this->seedPatients($tenantId, $unitId, $faker);
+            $appointments  = $this->seedAppointments($tenantId, $unitId, $roomIds, $professionals, $patientIds, $faker);
+            $this->seedEvolutions($tenantId, $appointments);
+
+            $this->ensureAdmin($tenantId, $unitId);
+
+            echo 'Dados de demonstração criados com sucesso.' . PHP_EOL;
+        } else {
+            $this->ensureAdmin($tenantId, $this->demoUnitId($tenantId));
+
+            echo 'Dados de demonstração já existiam; usuário admin garantido.' . PHP_EOL;
+        }
+
+        echo 'Login admin: ' . self::ADMIN_EMAIL . ' / password' . PHP_EOL;
+        echo 'Login profissional: prof1@mindtrack.com / password' . PHP_EOL;
     }
 
-    private function demoTenantExists(): bool
+    private function demoTenantId(): ?int
     {
-        return $this->db->table('tenants')->where('slug', self::DEMO_SLUG)->get()->getRowArray() !== null;
+        $tenant = $this->db->table('tenants')->where('slug', self::DEMO_SLUG)->get()->getRowArray();
+
+        return $tenant !== null ? (int) $tenant['id'] : null;
+    }
+
+    private function demoUnitId(int $tenantId): int
+    {
+        $unit = $this->db->table('units')
+            ->where('tenant_id', $tenantId)
+            ->orderBy('id', 'ASC')
+            ->get()
+            ->getRowArray();
+
+        if ($unit === null) {
+            throw new RuntimeException('Unidade de demonstração não encontrada.');
+        }
+
+        return (int) $unit['id'];
     }
 
     private function seedTenant(): int
@@ -108,90 +139,104 @@ class DemoDataSeeder extends Seeder
         return $ids;
     }
 
-    private function seedUsers(int $tenantId, int $unitId): array
+    private function seedProfessionals(int $tenantId, int $unitId, Generator $faker): array
     {
         $userModel     = new UserModel();
         $roleUserModel = new RoleUserModel();
 
-        $roleBySlug = [];
-        foreach ((new RoleModel())->rolesForTenant($tenantId) as $role) {
-            $roleBySlug[$role['slug']] = (int) $role['id'];
-        }
-
-        $adminId = $this->createUser($userModel, $tenantId, $unitId, 'Admin Clínica Teste', 'admin@clinica-teste.com');
-        $roleUserModel->syncRoles($adminId, [$roleBySlug['admin'] ?? 0]);
-
-        $professionals = [
-            ['Camila Nogueira', 'camila.nogueira@clinica-teste.com'],
-            ['Rafael Barros', 'rafael.barros@clinica-teste.com'],
-            ['Juliana Castro', 'juliana.castro@clinica-teste.com'],
-            ['Bruno Mendes', 'bruno.mendes@clinica-teste.com'],
-            ['Patrícia Araújo', 'patricia.araujo@clinica-teste.com'],
-        ];
+        $professionalRoleId = $this->roleIdBySlug($tenantId, 'profissional');
 
         $professionalIds = [];
-        foreach ($professionals as [$name, $email]) {
-            $id = $this->createUser($userModel, $tenantId, $unitId, $name, $email);
-            $roleUserModel->syncRoles($id, [$roleBySlug['profissional'] ?? 0]);
-            $professionalIds[] = $id;
-        }
 
-        return ['admin' => $adminId, 'professionals' => $professionalIds];
-    }
-
-    private function createUser(UserModel $userModel, int $tenantId, int $unitId, string $name, string $email): int
-    {
-        $id = $userModel->insert([
-            'tenant_id'      => $tenantId,
-            'unit_id'        => $unitId,
-            'name'           => $name,
-            'email'          => $email,
-            'password'       => 'password',
-            'is_super_admin' => 0,
-            'is_active'      => 1,
-        ]);
-
-        if ($id === false) {
-            throw new RuntimeException('Falha ao criar o usuário ' . $email . ': ' . implode(' ', $userModel->errors()));
-        }
-
-        return (int) $id;
-    }
-
-    private function seedPatients(int $tenantId, int $unitId): array
-    {
-        $patientModel = new PatientModel();
-
-        $patients = [
-            ['João Pedro Almeida', 'M', 'Nível 1', '2018-05-14'],
-            ['Maria Clara Souza', 'F', 'Nível 2', '2016-09-02'],
-            ['Enzo Gabriel Oliveira', 'M', 'Nível 1', '2019-01-23'],
-            ['Valentina Lima', 'F', 'Nível 3', '2017-11-30'],
-            ['Davi Lucas Santos', 'M', 'Nível 2', '2020-03-18'],
-            ['Alice Ferreira', 'F', 'Nível 1', '2018-07-09'],
-            ['Miguel Rocha', 'M', 'Nível 2', '2015-12-01'],
-            ['Sophia Cardoso', 'F', 'Nível 1', '2021-06-25'],
-            ['Arthur Henrique Ribeiro', 'M', 'Nível 3', '2016-04-11'],
-            ['Helena Martins', 'F', 'Nível 1', '2019-10-07'],
-        ];
-
-        $ids = [];
-        foreach ($patients as $i => [$name, $sex, $supportLevel, $birthDate]) {
-            $id = $patientModel->insert([
-                'tenant_id'           => $tenantId,
-                'name'                => $name,
-                'birth_date'          => $birthDate,
-                'cpf'                 => str_pad((string) (10000000000 + $i), 11, '0', STR_PAD_LEFT),
-                'sex'                 => $sex,
-                'is_active'           => 1,
-                'diagnosis'           => 'TEA',
-                'support_level'       => $supportLevel,
-                'unit_id'             => $unitId,
-                'health_insurance_id' => null,
+        for ($i = 1; $i <= 4; $i++) {
+            $id = $userModel->insert([
+                'tenant_id'      => $tenantId,
+                'unit_id'        => $unitId,
+                'name'           => $faker->name(),
+                'email'          => 'prof' . $i . '@mindtrack.com',
+                'password'       => 'password',
+                'is_super_admin' => 0,
+                'is_active'      => 1,
+                'agenda_order'   => $i - 1,
             ]);
 
             if ($id === false) {
-                throw new RuntimeException('Falha ao criar o paciente ' . $name . ': ' . implode(' ', $patientModel->errors()));
+                throw new RuntimeException(
+                    'Falha ao criar o profissional prof' . $i . ': ' . implode(' ', $userModel->errors())
+                );
+            }
+
+            $roleUserModel->syncRoles((int) $id, [$professionalRoleId]);
+            $professionalIds[] = (int) $id;
+        }
+
+        return $professionalIds;
+    }
+
+    private function roleIdBySlug(int $tenantId, string $slug): int
+    {
+        foreach ((new RoleModel())->rolesForTenant($tenantId) as $role) {
+            if ($role['slug'] === $slug) {
+                return (int) $role['id'];
+            }
+        }
+
+        throw new RuntimeException('Cargo "' . $slug . '" não encontrado para o tenant de demonstração.');
+    }
+
+    private function ensureAdmin(int $tenantId, int $unitId): void
+    {
+        $userModel = new UserModel();
+
+        if ($userModel->emailExists(self::ADMIN_EMAIL)) {
+            return;
+        }
+
+        $adminRoleId = $this->roleIdBySlug($tenantId, 'admin');
+
+        $id = $userModel->insert([
+            'tenant_id'      => $tenantId,
+            'unit_id'        => $unitId,
+            'name'           => 'Admin Teste',
+            'email'          => self::ADMIN_EMAIL,
+            'password'       => 'password',
+            'is_super_admin' => 0,
+            'is_active'      => 1,
+            'agenda_order'   => $userModel->nextAgendaOrder($tenantId),
+        ]);
+
+        if ($id === false) {
+            throw new RuntimeException('Falha ao criar o usuário admin: ' . implode(' ', $userModel->errors()));
+        }
+
+        (new RoleUserModel())->syncRoles((int) $id, [$adminRoleId]);
+    }
+
+    private function seedPatients(int $tenantId, int $unitId, Generator $faker): array
+    {
+        $patientModel = new PatientModel();
+        $palette      = PatientColor::getPalette();
+
+        $ids = [];
+
+        for ($i = 0; $i < 30; $i++) {
+            $id = $patientModel->insert([
+                'tenant_id'     => $tenantId,
+                'unit_id'       => $unitId,
+                'name'          => $faker->name(),
+                'birth_date'    => $faker->dateTimeBetween('-18 years', '-3 years')->format('Y-m-d'),
+                'cpf'           => $faker->cpf(false),
+                'sex'           => $faker->randomElement(['M', 'F']),
+                'is_active'     => 1,
+                'diagnosis'     => null,
+                'support_level' => null,
+                'color'         => $palette[$i % count($palette)],
+            ]);
+
+            if ($id === false) {
+                throw new RuntimeException(
+                    'Falha ao criar o paciente #' . $i . ': ' . implode(' ', $patientModel->errors())
+                );
             }
 
             $ids[] = (int) $id;
@@ -200,130 +245,50 @@ class DemoDataSeeder extends Seeder
         return $ids;
     }
 
-    private function seedProtocol(int $tenantId): int
-    {
-        $protocolId = (new ProtocolModel())->insert([
-            'tenant_id'   => $tenantId,
-            'name'        => 'Protocolo ABA - Desenvolvimento Infantil',
-            'description' => 'Protocolo completo de demonstração (2 níveis, 4 habilidades e 20 itens).',
-            'is_active'   => 1,
-        ]);
-
-        if ($protocolId === false) {
-            throw new RuntimeException('Falha ao criar o protocolo de demonstração.');
-        }
-
-        $structure = [
-            ['Nível 1 - Fundamentos', [
-                ['Atenção e Imitação', [
-                    'Mantém contato visual por 3 segundos',
-                    'Imita movimentos motores simples',
-                    'Imita sons e vocalizações',
-                    'Responde ao próprio nome',
-                    'Segue instrução de um passo',
-                ]],
-                ['Comunicação Receptiva', [
-                    'Aponta para objeto nomeado',
-                    'Identifica partes do corpo',
-                    'Segue instrução de dois passos',
-                    'Pareia objetos idênticos',
-                    'Categoriza objetos por cor',
-                ]],
-            ]],
-            ['Nível 2 - Avançado', [
-                ['Comunicação Expressiva', [
-                    'Pede item desejado com gesto',
-                    'Vocaliza para chamar atenção',
-                    'Nomeia figuras simples',
-                    'Usa frases de duas palavras',
-                    'Responde perguntas simples',
-                ]],
-                ['Habilidades Sociais', [
-                    'Compartilha brinquedo com adulto',
-                    'Aguarda a vez em atividade',
-                    'Cumprimenta ao chegar',
-                    'Brinca de faz de conta',
-                    'Mantém interação por 2 minutos',
-                ]],
-            ]],
-        ];
-
-        $levelModel = new ProtocolLevelModel();
-        $skillModel = new ProtocolSkillModel();
-        $itemModel  = new ProtocolItemModel();
-
-        $levelOrder = 1;
-        foreach ($structure as [$levelName, $skills]) {
-            $levelId = $levelModel->insert([
-                'tenant_id'   => $tenantId,
-                'protocol_id' => (int) $protocolId,
-                'name'        => $levelName,
-                'sort_order'  => $levelOrder,
-            ]);
-
-            if ($levelId === false) {
-                throw new RuntimeException('Falha ao criar o nível ' . $levelName . '.');
-            }
-
-            $skillOrder = 1;
-            foreach ($skills as [$skillName, $items]) {
-                $skillId = $skillModel->insert([
-                    'tenant_id'  => $tenantId,
-                    'level_id'   => (int) $levelId,
-                    'name'       => $skillName,
-                    'sort_order' => $skillOrder,
-                ]);
-
-                if ($skillId === false) {
-                    throw new RuntimeException('Falha ao criar a habilidade ' . $skillName . '.');
-                }
-
-                $itemOrder = 1;
-                foreach ($items as $itemName) {
-                    $itemId = $itemModel->insert([
-                        'tenant_id'  => $tenantId,
-                        'skill_id'   => (int) $skillId,
-                        'name'       => $itemName,
-                        'sort_order' => $itemOrder,
-                    ]);
-
-                    if ($itemId === false) {
-                        throw new RuntimeException('Falha ao criar o item ' . $itemName . '.');
-                    }
-
-                    $itemOrder++;
-                }
-
-                $skillOrder++;
-            }
-
-            $levelOrder++;
-        }
-
-        return (int) $protocolId;
-    }
-
-    private function seedAppointments(int $tenantId, int $unitId, array $roomIds, array $professionalIds, array $patientIds): array
-    {
+    private function seedAppointments(
+        int $tenantId,
+        int $unitId,
+        array $roomIds,
+        array $professionalIds,
+        array $patientIds,
+        Generator $faker
+    ): array {
         $appointmentModel = new AppointmentModel();
-        $statuses         = ['realizado', 'falta_paciente', 'agendado'];
-        $appointments     = [];
 
-        for ($i = 0; $i < 50; $i++) {
-            $status     = $statuses[$i % 3];
-            $offsetDays = ($i * 11) % 90;
-            $hour       = 8 + ($i % 8);
+        // Distribuicao fixa garante pelo menos 20 'realizado' para as evolucoes.
+        $statusPool = array_merge(
+            array_fill(0, 30, 'realizado'),
+            array_fill(0, 45, 'agendado'),
+            array_fill(0, 25, 'falta_paciente')
+        );
+        $statusPool = $faker->shuffle($statusPool);
 
-            $start = (new DateTimeImmutable('today'))
-                ->modify('-' . $offsetDays . ' days')
-                ->setTime($hour, 0, 0);
-            $end   = $start->modify('+50 minutes');
+        $appointments = [];
+        $usedSlots    = [];
+        $today        = new DateTimeImmutable('today');
+
+        for ($i = 0; $i < 100; $i++) {
+            // Evita dois agendamentos do mesmo profissional no mesmo dia/horario.
+            do {
+                $professionalId = $faker->randomElement($professionalIds);
+                $dayOffset      = $faker->numberBetween(0, 15);
+                $hour           = $faker->numberBetween(8, 18);
+                $minute         = $hour === 18 ? 0 : $faker->randomElement([0, 30]);
+                $slotKey        = $professionalId . '|' . $dayOffset . '|' . $hour . ':' . $minute;
+            } while (isset($usedSlots[$slotKey]));
+
+            $usedSlots[$slotKey] = true;
+
+            $patientId = $faker->randomElement($patientIds);
+            $start     = $today->modify('+' . $dayOffset . ' days')->setTime($hour, $minute, 0);
+            $end       = $start->modify('+50 minutes');
+            $status    = $statusPool[$i];
 
             $id = $appointmentModel->insert([
                 'tenant_id'       => $tenantId,
-                'patient_id'      => $patientIds[$i % count($patientIds)],
-                'professional_id' => $professionalIds[$i % count($professionalIds)],
-                'room_id'         => $roomIds[$i % count($roomIds)],
+                'patient_id'      => $patientId,
+                'professional_id' => $professionalId,
+                'room_id'         => $faker->randomElement($roomIds),
                 'unit_id'         => $unitId,
                 'start_time'      => $start->format('Y-m-d H:i:s'),
                 'end_time'        => $end->format('Y-m-d H:i:s'),
@@ -333,14 +298,16 @@ class DemoDataSeeder extends Seeder
             ]);
 
             if ($id === false) {
-                throw new RuntimeException('Falha ao criar o agendamento #' . $i . ': ' . implode(' ', $appointmentModel->errors()));
+                throw new RuntimeException(
+                    'Falha ao criar o agendamento #' . $i . ': ' . implode(' ', $appointmentModel->errors())
+                );
             }
 
             $appointments[] = [
                 'id'              => (int) $id,
                 'status'          => $status,
-                'patient_id'      => $patientIds[$i % count($patientIds)],
-                'professional_id' => $professionalIds[$i % count($professionalIds)],
+                'patient_id'      => (int) $patientId,
+                'professional_id' => (int) $professionalId,
             ];
         }
 
@@ -350,32 +317,34 @@ class DemoDataSeeder extends Seeder
     private function seedEvolutions(int $tenantId, array $appointments): void
     {
         $evolutionModel = new SessionEvolutionModel();
+
+        $realized = array_slice(array_values(array_filter(
+            $appointments,
+            static fn (array $appointment): bool => $appointment['status'] === 'realizado'
+        )), 0, 20);
+
         $texts = [
             'Paciente participativo e engajado durante toda a sessão.',
             'Evolução satisfatória nos objetivos trabalhados hoje.',
             'Apresentou boa resposta aos estímulos propostos.',
             'Pequena resistência no início, mas concluiu as atividades.',
+            'Bom contato visual e interação social durante a sessão.',
         ];
 
-        $created = 0;
-        foreach ($appointments as $appointment) {
-            if ($appointment['status'] !== 'realizado') {
-                continue;
-            }
-
+        foreach ($realized as $index => $appointment) {
             $id = $evolutionModel->insert([
                 'tenant_id'       => $tenantId,
                 'appointment_id'  => $appointment['id'],
                 'patient_id'      => $appointment['patient_id'],
                 'professional_id' => $appointment['professional_id'],
-                'evolution_text'  => $texts[$created % count($texts)],
+                'evolution_text'  => $texts[$index % count($texts)],
             ]);
 
             if ($id === false) {
-                throw new RuntimeException('Falha ao criar a evolução: ' . implode(' ', $evolutionModel->errors()));
+                throw new RuntimeException(
+                    'Falha ao criar a evolução: ' . implode(' ', $evolutionModel->errors())
+                );
             }
-
-            $created++;
         }
     }
 }

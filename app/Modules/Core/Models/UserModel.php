@@ -162,4 +162,26 @@ class UserModel extends BaseModel
 
         return true;
     }
+
+    /**
+     * Proximo valor da coluna `agenda_order` para um novo usuario do tenant.
+     *
+     * O novo profissional entra no fim da fila (MAX + 1) sem baguncar a
+     * ordem existente. Consulta a tabela diretamente para ignorar o tenant
+     * scope do BaseModel e considera apenas registros nao removidos.
+     */
+    public function nextAgendaOrder(?int $tenantId): int
+    {
+        $builder = $this->db->table('users')->selectMax('agenda_order', 'max_order');
+
+        if ($tenantId === null) {
+            $builder->where('tenant_id', null);
+        } else {
+            $builder->where('tenant_id', $tenantId);
+        }
+
+        $row = $builder->where('deleted_at', null)->get()->getRowArray();
+
+        return (int) ($row['max_order'] ?? 0) + 1;
+    }
 }
