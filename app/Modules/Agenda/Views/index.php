@@ -45,6 +45,35 @@
         </div>
     </div>
 
+    <div class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+        <div class="mb-2 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 16h16" />
+            </svg>
+            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Ordem dos profissionais</span>
+            <span class="text-xs text-gray-400">(arraste para reordenar)</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <template x-for="(p, index) in orderedProfessionals()" :key="p.id">
+                <div
+                    draggable="true"
+                    @dragstart="dragProfessional($event, index)"
+                    @dragover.prevent
+                    @drop="dropProfessional($event, index)"
+                    @dragend="dragProfessionalEnd()"
+                    :class="dragIndex === index ? 'opacity-40' : 'opacity-100'"
+                    class="inline-flex cursor-grab select-none items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 active:cursor-grabbing"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4M8 15l4 4 4-4" />
+                    </svg>
+                    <span x-text="p.name"></span>
+                </div>
+            </template>
+            <p x-show="orderedProfessionals().length === 0" class="text-sm text-gray-400">Nenhum profissional ativo para ordenar.</p>
+        </div>
+    </div>
+
     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div class="p-4">
             <div id="dayView" class="agenda-view"></div>
@@ -208,6 +237,25 @@
             </div>
         </div>
     </div>
+
+    <!-- Toast de feedback -->
+    <div
+        x-show="toast.open"
+        x-transition.opacity.duration.200ms
+        x-cloak
+        :class="toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'"
+        class="fixed bottom-6 right-6 z-[60] flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg"
+        role="status"
+        aria-live="polite"
+    >
+        <svg x-show="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+        <svg x-show="toast.type === 'error'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+        <span x-text="toast.message"></span>
+    </div>
 </div>
 
 <script>
@@ -280,6 +328,9 @@ function agendaApp() {
         conflict: { open: false, conflicts: [] },
         pendingPayload: null,
         selected: { open: false, event: null },
+        dragIndex: null,
+        toast: { open: false, message: '', type: 'success' },
+        toastTimer: null,
         view: 'day',
         dateStr: <?= json_encode($date) ?>,
         evolutionCreateUrl: <?= json_encode(site_url('evolutions/create')) ?>,
@@ -611,6 +662,63 @@ function agendaApp() {
             professionals.forEach((p, index) => { p.order = index; });
 
             this.refresh();
+        },
+        showToast(message, type = 'success') {
+            this.toast.message = message;
+            this.toast.type = type;
+            this.toast.open = true;
+
+            clearTimeout(this.toastTimer);
+            this.toastTimer = setTimeout(() => { this.toast.open = false; }, 2500);
+        },
+        dragProfessional(event, index) {
+            this.dragIndex = index;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', String(index));
+        },
+        dropProfessional(event, index) {
+            event.preventDefault();
+
+            const from = this.dragIndex;
+            if (from === null || from === index) {
+                this.dragIndex = null;
+                return;
+            }
+
+            this.reorderProfessionals(from, index);
+            this.dragIndex = null;
+            this.saveProfessionalOrder();
+        },
+        dragProfessionalEnd() {
+            this.dragIndex = null;
+        },
+        async saveProfessionalOrder() {
+            try {
+                const response = await fetch(<?= json_encode(site_url('agenda/update-professional-order')) ?>, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': this.token,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({ ids: orderedProfessionals().map((p) => Number(p.id)) }),
+                });
+
+                const data = await response.json();
+
+                if (data.csrf_hash) {
+                    this.token = data.csrf_hash;
+                }
+
+                if (! data.success) {
+                    this.showToast(data.message || 'Erro ao salvar a ordem.', 'error');
+                    return;
+                }
+
+                this.showToast(data.message || 'Ordem salva com sucesso.', 'success');
+            } catch (error) {
+                this.showToast('Erro ao salvar a ordem.', 'error');
+            }
         },
         buildPayload(forceOverride) {
             const combine = (time) => time ? (this.form.date + ' ' + time + ':00') : null;

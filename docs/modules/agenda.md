@@ -27,5 +27,8 @@ A navegação é customizada e se adapta à visão selecionada:
 3. **Conteúdo do Card:** Na visão Semana, o card deve exibir o nome do paciente e o horário (ex: "08:00 - 08:40").
 
 ## Interações
-1. **Ordenação de Profissionais:** As colunas (visão dia) ou linhas (visão semana) devem permitir Drag-and-Drop para reordenar os profissionais. Essa ordem será salva globalmente no banco de dados (implementação no próximo sprint).
+1. **Ordenação de Profissionais (Implementado):** 
+   - As colunas (visão dia) ou linhas (visão semana) permitem Drag-and-Drop para reordenar os profissionais.
+   - A ordem é salva globalmente na tabela `users` (coluna `agenda_order`).
+   - Ao reordenar, o frontend envia um POST com o array de IDs dos profissionais na nova ordem. O backend atualiza o campo `agenda_order` de cada usuário.
 2. **Drag-and-Drop de Agendamentos:** Os cards podem ser arrastados para outros horários/dias/profissionais, passando pela Soft Validation. A troca de profissional também deve ser persistida no banco.

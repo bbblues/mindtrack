@@ -49,12 +49,48 @@ class AppointmentController extends BaseController
         return view('App\Modules\Agenda\Views\index', [
             'title'           => 'Agenda',
             'date'            => $date,
-            'professionals'   => $this->userModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll(),
+            'professionals'   => $this->userModel->where('is_active', 1)->orderBy('agenda_order', 'ASC')->orderBy('name', 'ASC')->findAll(),
             'patients'        => $this->patientModel->orderBy('name', 'ASC')->findAll(),
             'units'           => $this->unitModel->orderBy('name', 'ASC')->findAll(),
             'rooms'           => $this->roomModel->orderBy('name', 'ASC')->findAll(),
             'defaultDuration' => $this->defaultDurationMinutes(),
             'statusOptions'   => $this->statusOptions(),
+        ]);
+    }
+
+    /**
+     * Persiste a nova ordem dos profissionais na agenda.
+     *
+     * Recebe um array JSON com os IDs na ordem desejada.
+     */
+    public function updateProfessionalOrder(): ResponseInterface
+    {
+        $payload = $this->requestPayload();
+
+        $ids = $payload['ids'] ?? null;
+
+        if (! is_array($ids) || $ids === []) {
+            return $this->jsonError(422, 'A lista de profissionais e obrigatoria.');
+        }
+
+        $orderedIds = [];
+        foreach ($ids as $id) {
+            $intId = (int) $id;
+            if ($intId <= 0) {
+                return $this->jsonError(422, 'A lista de profissionais contem um ID invalido.');
+            }
+
+            $orderedIds[] = $intId;
+        }
+
+        if (! $this->userModel->updateAgendaOrder($orderedIds)) {
+            return $this->jsonError(500, 'Falha ao salvar a ordem dos profissionais.');
+        }
+
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => 'Ordem salva com sucesso.',
+            'csrf_hash' => csrf_hash(),
         ]);
     }
 

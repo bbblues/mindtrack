@@ -8,7 +8,7 @@ class UserModel extends BaseModel
 {
     protected $table         = 'users';
     protected $primaryKey    = 'id';
-    protected $allowedFields = ['tenant_id', 'unit_id', 'name', 'email', 'password', 'is_super_admin', 'is_active'];
+    protected $allowedFields = ['tenant_id', 'unit_id', 'name', 'email', 'password', 'is_super_admin', 'is_active', 'agenda_order'];
 
     protected $beforeInsert = ['hashPassword'];
     protected $beforeUpdate = ['hashPassword'];
@@ -127,5 +127,39 @@ class UserModel extends BaseModel
             ->getResultArray();
 
         return array_values(array_filter(array_map('strval', array_column($rows, 'slug'))));
+    }
+
+    /**
+     * Persiste a ordem dos profissionais na agenda gravando o indice de cada
+     * usuario na coluna `agenda_order`.
+     *
+     * Usa builders novos para nao reaproveitar estado de query de chamadas
+     * anteriores na mesma requisicao.
+     *
+     * @param list<int> $orderedIds
+     */
+    public function updateAgendaOrder(array $orderedIds): bool
+    {
+        if ($orderedIds === []) {
+            return false;
+        }
+
+        $tenantId  = $this->currentTenantId();
+        $hasTenant = $this->tableHasTenantColumn('users');
+
+        foreach ($orderedIds as $index => $userId) {
+            $builder = $this->db->table('users')
+                ->where('id', (int) $userId)
+                ->where('is_active', 1)
+                ->where('deleted_at', null);
+
+            if ($tenantId !== null && $hasTenant) {
+                $builder->where('tenant_id', $tenantId);
+            }
+
+            $builder->update(['agenda_order' => $index]);
+        }
+
+        return true;
     }
 }
