@@ -91,7 +91,7 @@ class AppointmentModel extends BaseModel
     public function forDate(string $date): array
     {
         return $this->newQuery()
-            ->select($this->table . '.*, patients.name AS patient_name, users.name AS professional_name')
+            ->select($this->table . '.*, patients.name AS patient_name, patients.color AS patient_color, users.name AS professional_name')
             ->join('patients', 'patients.id = ' . $this->table . '.patient_id', 'left')
             ->join('users', 'users.id = ' . $this->table . '.professional_id', 'left')
             ->where($this->table . '.start_time >=', $date . ' 00:00:00')
@@ -103,14 +103,14 @@ class AppointmentModel extends BaseModel
 
     /**
      * Lista os agendamentos que fazem interseccao com o intervalo informado,
-     * incluindo os nomes de paciente e profissional para exibicao no FullCalendar.
+     * incluindo nome/cor do paciente e nome do profissional para exibicao no DayPilot.
      *
      * @return array<int, array<string, mixed>>
      */
     public function forRange(?string $start = null, ?string $end = null): array
     {
         $builder = $this->newQuery()
-            ->select($this->table . '.*, patients.name AS patient_name, users.name AS professional_name')
+            ->select($this->table . '.*, patients.name AS patient_name, patients.color AS patient_color, users.name AS professional_name')
             ->join('patients', 'patients.id = ' . $this->table . '.patient_id', 'left')
             ->join('users', 'users.id = ' . $this->table . '.professional_id', 'left')
             ->orderBy($this->table . '.start_time', 'ASC');

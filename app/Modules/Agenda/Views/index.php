@@ -2,25 +2,53 @@
 
 <?= $this->section('content') ?>
 
-<style>[x-cloak]{display:none!important}</style>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/locales/pt-br.global.min.js"></script>
+<style>[x-cloak]{display:none!important}.agenda-event-name{font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.agenda-event-time{font-size:11px;line-height:1.2;opacity:.9}</style>
+<!-- This software includes DayPilot (https://www.daypilot.org). License: Apache License 2.0 -->
+<script src="https://unpkg.com/@daypilot/daypilot-lite-javascript@6.2.0/daypilot-javascript.min.js"></script>
 
 <div x-data="agendaApp()" x-cloak class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
             <h2 class="text-xl font-semibold text-gray-800">Agenda</h2>
-            <p class="mt-1 text-sm text-gray-500">Visualize por mês, semana ou dia e arraste os cards para reagendar.</p>
+            <p class="mt-1 text-sm text-gray-500">Visualize por dia ou semana e arraste os cards para reagendar ou trocar de profissional.</p>
         </div>
         <button type="button" @click="openModal()" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
             + Agendamento
         </button>
     </div>
 
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
+            <button type="button" :class="dayButtonClass" @click="setView('day')">Dia</button>
+            <button type="button" :class="weekButtonClass" @click="setView('week')">Semana</button>
+        </div>
+
+        <div x-show="view === 'day'" class="flex flex-wrap items-center gap-2">
+            <button type="button" @click="prevDay()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50" aria-label="Dia anterior">‹</button>
+            <div class="flex items-center gap-1">
+                <template x-for="d in dayDates" :key="d.key">
+                    <button type="button" @click="goToDate(d.date)" :class="d.active ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 hover:bg-gray-50'" class="rounded-lg border border-gray-300 px-2.5 py-1.5 text-center leading-tight transition">
+                        <span class="block text-[10px] uppercase tracking-wide opacity-70" x-text="d.weekday"></span>
+                        <span class="block text-xs font-semibold" x-text="d.dayMonth"></span>
+                    </button>
+                </template>
+            </div>
+            <button type="button" @click="nextDay()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50" aria-label="Próximo dia">›</button>
+            <span class="ml-2 text-sm font-medium text-gray-700" x-text="periodLabel"></span>
+        </div>
+
+        <div x-show="view === 'week'" class="flex flex-wrap items-center gap-2">
+            <button type="button" @click="prevWeek()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50">‹ Semana Anterior</button>
+            <button type="button" @click="currentWeek()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">Semana Atual</button>
+            <button type="button" @click="nextWeek()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50">Próxima Semana ›</button>
+            <span class="ml-2 text-sm font-medium text-gray-700" x-text="periodLabel"></span>
+        </div>
+    </div>
+
     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div class="p-4">
-            <div id="calendar"></div>
+            <div id="dayView" class="agenda-view"></div>
+            <div id="weekView" class="agenda-view hidden"></div>
         </div>
     </div>
 
@@ -183,13 +211,77 @@
 </div>
 
 <script>
+<?php
+$agendaProfessionals = [];
+$agendaOrder = 0;
+foreach ($professionals as $professional) {
+    $agendaProfessionals[] = [
+        'id'    => (int) $professional['id'],
+        'name'  => $professional['name'],
+        'order' => $agendaOrder,
+    ];
+    $agendaOrder++;
+}
+?>
 function agendaApp() {
+    const professionals = <?= json_encode($agendaProfessionals) ?>;
+    let dayCalendar = null;
+    let weekScheduler = null;
+
+    function orderedProfessionals() {
+        return professionals.slice().sort((a, b) => a.order - b.order);
+    }
+
+    function buildColumns() {
+        return orderedProfessionals().map((p) => ({ id: String(p.id), name: p.name }));
+    }
+
+    function buildResources() {
+        return orderedProfessionals().map((p) => ({ id: String(p.id), name: p.name }));
+    }
+
+    function toJsDate(date) {
+        return new Date(date.getYear(), date.getMonth() - 1, date.getDay(), date.getHour(), date.getMinute(), date.getSecond());
+    }
+
+    function iso(date) {
+        return date.toString("yyyy-MM-dd'T'HH:mm:ss");
+    }
+
+    function isoDate(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+
+        return y + '-' + m + '-' + day;
+    }
+
+    function addDaysIso(isoStr, days) {
+        const d = new Date(isoStr + 'T00:00:00');
+        d.setDate(d.getDate() + days);
+
+        return isoDate(d);
+    }
+
+    function todayIso() {
+        return isoDate(new Date());
+    }
+
+    function weekStartIso(isoStr) {
+        const d = new Date(isoStr + 'T00:00:00');
+        d.setDate(d.getDate() - d.getDay());
+
+        return isoDate(d);
+    }
+
     return {
         open: false,
         submitting: false,
         conflict: { open: false, conflicts: [] },
         pendingPayload: null,
         selected: { open: false, event: null },
+        view: 'day',
+        dateStr: <?= json_encode($date) ?>,
         evolutionCreateUrl: <?= json_encode(site_url('evolutions/create')) ?>,
         token: <?= json_encode(csrf_hash()) ?>,
         defaultDuration: <?= (int) $defaultDuration ?>,
@@ -211,6 +303,195 @@ function agendaApp() {
                 this.selected.event = event.detail;
                 this.selected.open = true;
             });
+
+            if (typeof DayPilot === 'undefined') {
+                return;
+            }
+
+            this.setView('day');
+        },
+        get periodLabel() {
+            if (this.view === 'day') {
+                return new Date(this.dateStr + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            }
+
+            const start = weekStartIso(this.dateStr);
+            const end = addDaysIso(start, 6);
+
+            return new Date(start + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
+                + ' – '
+                + new Date(end + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
+        },
+        get dayDates() {
+            const today = new Date();
+            const list = [];
+
+            for (let i = 0; i < 10; i++) {
+                const d = new Date(today);
+                d.setDate(d.getDate() + i);
+                const isoStr = isoDate(d);
+
+                list.push({
+                    key: isoStr,
+                    date: isoStr,
+                    weekday: d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''),
+                    dayMonth: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+                    active: isoStr === this.dateStr,
+                });
+            }
+
+            return list;
+        },
+        get dayButtonClass() {
+            return this.view === 'day'
+                ? 'rounded-lg px-4 py-2 text-sm font-semibold bg-blue-600 text-white shadow-sm transition'
+                : 'rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition';
+        },
+        get weekButtonClass() {
+            return this.view === 'week'
+                ? 'rounded-lg px-4 py-2 text-sm font-semibold bg-blue-600 text-white shadow-sm transition'
+                : 'rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition';
+        },
+        setView(view) {
+            const active = view === 'day' ? dayCalendar : weekScheduler;
+
+            if (this.view === view && active) {
+                return;
+            }
+
+            this.view = view;
+            this.disposeCalendars();
+            this.showCalendarContainer(view);
+
+            if (view === 'day') {
+                this.initDayCalendar();
+            } else {
+                this.initWeekScheduler();
+            }
+
+            this.refresh();
+        },
+        prevDay() {
+            this.dateStr = addDaysIso(this.dateStr, -1);
+            this.refresh();
+        },
+        nextDay() {
+            this.dateStr = addDaysIso(this.dateStr, 1);
+            this.refresh();
+        },
+        goToDate(isoStr) {
+            this.dateStr = isoStr;
+            this.refresh();
+        },
+        prevWeek() {
+            this.dateStr = addDaysIso(this.dateStr, -7);
+            this.refresh();
+        },
+        currentWeek() {
+            this.dateStr = todayIso();
+            this.refresh();
+        },
+        nextWeek() {
+            this.dateStr = addDaysIso(this.dateStr, 7);
+            this.refresh();
+        },
+        async refresh() {
+            const range = this.fetchRange();
+            const events = await this.fetchEvents(range.start, range.end);
+
+            if (this.view === 'day' && dayCalendar) {
+                dayCalendar.update({ startDate: this.dateStr, columns: buildColumns(), events });
+            } else if (this.view === 'week' && weekScheduler) {
+                weekScheduler.update({ startDate: weekStartIso(this.dateStr), resources: buildResources(), events });
+            }
+        },
+        fetchRange() {
+            if (this.view === 'day') {
+                return {
+                    start: this.dateStr + 'T00:00:00',
+                    end: addDaysIso(this.dateStr, 1) + 'T00:00:00',
+                };
+            }
+
+            const start = weekStartIso(this.dateStr);
+
+            return {
+                start: start + 'T00:00:00',
+                end: addDaysIso(start, 7) + 'T00:00:00',
+            };
+        },
+        async fetchEvents(start, end) {
+            const params = new URLSearchParams({ start, end });
+            const response = await fetch(<?= json_encode(site_url('agenda/events')) ?> + '?' + params.toString());
+
+            if (! response.ok) {
+                alert('Falha ao carregar os agendamentos.');
+                return [];
+            }
+
+            return response.json();
+        },
+        initDayCalendar() {
+            dayCalendar = new DayPilot.Calendar('dayView', {
+                viewType: 'Resources',
+                locale: 'pt-br',
+                heightSpec: 'Full',
+                startDate: this.dateStr,
+                cellDuration: 30,
+                columns: buildColumns(),
+                eventMoveHandling: 'Update',
+                eventResizeHandling: 'Disabled',
+                timeRangeSelectedHandling: 'Disabled',
+                onEventClick: (args) => this.handleEventClick(args.e),
+                onEventMoved: (args) => this.handleEventMoved(args),
+            });
+            dayCalendar.init();
+        },
+        initWeekScheduler() {
+            weekScheduler = new DayPilot.Scheduler('weekView', {
+                locale: 'pt-br',
+                scale: 'Day',
+                days: 7,
+                weekStarts: 0,
+                heightSpec: 'Auto',
+                startDate: weekStartIso(this.dateStr),
+                timeHeaders: [
+                    { groupBy: 'Day', format: 'dddd' },
+                    { groupBy: 'Day', format: 'dd/MM' },
+                ],
+                resources: buildResources(),
+                cellWidth: 110,
+                rowHeight: 64,
+                eventHeight: 44,
+                eventMoveHandling: 'Update',
+                eventResizeHandling: 'Disabled',
+                timeRangeSelectedHandling: 'Disabled',
+                onEventClick: (args) => this.handleEventClick(args.e),
+                onEventMoved: (args) => this.handleEventMoved(args),
+                onBeforeEventRender: (args) => {
+                    const name = DayPilot.Util.escapeHtml(args.data.text || 'Paciente');
+                    const start = args.data.start.toString('HH:mm');
+                    const end = args.data.end.toString('HH:mm');
+
+                    args.data.html = '<div class="agenda-event-name">' + name + '</div><div class="agenda-event-time">' + start + ' - ' + end + '</div>';
+                },
+            });
+            weekScheduler.init();
+        },
+        disposeCalendars() {
+            if (dayCalendar) {
+                dayCalendar.dispose();
+                dayCalendar = null;
+            }
+
+            if (weekScheduler) {
+                weekScheduler.dispose();
+                weekScheduler = null;
+            }
+        },
+        showCalendarContainer(view) {
+            document.getElementById('dayView').classList.toggle('hidden', view !== 'day');
+            document.getElementById('weekView').classList.toggle('hidden', view !== 'week');
         },
         openModal() {
             this.form.end_time = this.addMinutes(this.form.start_time, this.defaultDuration);
@@ -232,6 +513,104 @@ function agendaApp() {
             const minute = total % 60;
 
             return String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
+        },
+        handleEventClick(e) {
+            const formatDate = (date) => {
+                if (! date) {
+                    return '';
+                }
+
+                const js = toJsDate(date);
+
+                return js.toLocaleDateString('pt-BR') + ' ' + js.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            };
+
+            window.dispatchEvent(new CustomEvent('agenda:eventClick', {
+                detail: {
+                    id: e.data.id,
+                    title: e.data.text || 'Paciente',
+                    when: formatDate(e.start()) + (e.end() ? ' até ' + formatDate(e.end()) : ''),
+                },
+            }));
+        },
+        async handleEventMoved(args) {
+            const payload = {
+                id: Number(args.e.data.id),
+                start: iso(args.newStart),
+                end: iso(args.newEnd),
+            };
+
+            const newResource = args.newResource != null
+                ? args.newResource
+                : (args.e && args.e.data ? args.e.data.resource : null);
+
+            if (newResource != null && newResource !== '') {
+                payload.professional_id = Number(newResource);
+            }
+
+            try {
+                const result = await this.postUpdate(payload);
+                this.updateCsrf(result.data);
+
+                if (result.status === 409) {
+                    const proceed = confirm('Conflito de horário para o profissional. Deseja continuar mesmo assim?');
+
+                    if (! proceed) {
+                        await this.refresh();
+                        return;
+                    }
+
+                    const forced = await this.postUpdate({ ...payload, force_override: true });
+                    this.updateCsrf(forced.data);
+
+                    if (forced.status !== 200) {
+                        alert(forced.data.message || 'Não foi possível mover o agendamento.');
+                        await this.refresh();
+                    }
+
+                    return;
+                }
+
+                if (result.status !== 200) {
+                    alert(result.data.message || 'Não foi possível mover o agendamento.');
+                    await this.refresh();
+                }
+            } catch (error) {
+                alert('Erro ao mover o agendamento.');
+                await this.refresh();
+            }
+        },
+        updateCsrf(data) {
+            if (data && data.csrf_hash) {
+                this.token = data.csrf_hash;
+            }
+        },
+        async postUpdate(payload) {
+            const response = await fetch(<?= json_encode(site_url('agenda/update-schedule')) ?>, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': this.token,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (error) {
+                // Resposta sem corpo JSON.
+            }
+
+            return { status: response.status, data };
+        },
+        reorderProfessionals(fromIndex, toIndex) {
+            const [moved] = professionals.splice(fromIndex, 1);
+            professionals.splice(toIndex, 0, moved);
+            professionals.forEach((p, index) => { p.order = index; });
+
+            this.refresh();
         },
         buildPayload(forceOverride) {
             const combine = (time) => time ? (this.form.date + ' ' + time + ':00') : null;
@@ -312,126 +691,6 @@ function agendaApp() {
 }
 </script>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    if (typeof FullCalendar === 'undefined') {
-        return;
-    }
-
-    let csrfToken = <?= json_encode(csrf_hash()) ?>;
-    const calendarEl = document.getElementById('calendar');
-
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
-        locale: 'pt-br',
-        timeZone: 'UTC',
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek,timeGridDay'
-        },
-        editable: true,
-        eventDurationEditable: false,
-        eventClick: (info) => handleEventClick(info),
-        events: {
-            url: <?= json_encode(site_url('agenda/events')) ?>,
-            method: 'GET',
-            failure: () => alert('Falha ao carregar os agendamentos.')
-        },
-        eventDrop: (info) => handleEventDrop(info),
-    });
-
-    calendar.render();
-
-    async function handleEventDrop(info) {
-        const payload = {
-            id: info.event.id,
-            start: info.event.startStr,
-            end: info.event.endStr || info.event.startStr,
-        };
-
-        try {
-            const result = await postUpdate(payload);
-
-            if (result.data.csrf_hash) {
-                csrfToken = result.data.csrf_hash;
-            }
-
-            if (result.status === 409) {
-                const proceed = confirm('Conflito de horário para o profissional. Deseja continuar mesmo assim?');
-
-                if (! proceed) {
-                    info.revert();
-                    return;
-                }
-
-                const forced = await postUpdate({
-                    id: payload.id,
-                    start: payload.start,
-                    end: payload.end,
-                    force_override: true,
-                });
-
-                if (forced.data.csrf_hash) {
-                    csrfToken = forced.data.csrf_hash;
-                }
-
-                if (forced.status !== 200) {
-                    info.revert();
-                    alert(forced.data.message || 'Não foi possível mover o agendamento.');
-                }
-
-                return;
-            }
-
-            if (result.status !== 200) {
-                info.revert();
-                alert(result.data.message || 'Não foi possível mover o agendamento.');
-            }
-        } catch (error) {
-            info.revert();
-            alert('Erro ao mover o agendamento.');
-        }
-    }
-
-    function handleEventClick(info) {
-        info.jsEvent.preventDefault();
-
-        const formatDate = (date) => date
-            ? date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-            : '';
-
-        window.dispatchEvent(new CustomEvent('agenda:eventClick', {
-            detail: {
-                id: info.event.id,
-                title: info.event.title,
-                when: formatDate(info.event.start) + (info.event.end ? ' até ' + formatDate(info.event.end) : ''),
-            },
-        }));
-    }
-
-    async function postUpdate(payload) {
-        const response = await fetch(<?= json_encode(site_url('agenda/update-schedule')) ?>, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: JSON.stringify(payload),
-        });
-
-        let data = {};
-        try {
-            data = await response.json();
-        } catch (error) {
-            // Resposta sem corpo JSON.
-        }
-
-        return { status: response.status, data };
-    }
-});
-</script>
 
 <?= $this->endSection() ?>
 

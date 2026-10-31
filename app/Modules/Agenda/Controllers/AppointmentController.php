@@ -8,6 +8,7 @@ use App\Modules\Core\Models\RoomModel;
 use App\Modules\Core\Models\SettingModel;
 use App\Modules\Core\Models\UnitModel;
 use App\Modules\Core\Models\UserModel;
+use App\Modules\Patients\Libraries\PatientColor;
 use App\Modules\Patients\Models\PatientModel;
 use CodeIgniter\HTTP\ResponseInterface;
 
@@ -158,7 +159,10 @@ class AppointmentController extends BaseController
     }
 
     /**
-     * Retorna os agendamentos no formato de eventos do FullCalendar.
+     * Retorna os agendamentos no formato de eventos do DayPilot.
+     *
+     * O fundo do card usa a cor do paciente e a cor do texto (preto/branco)
+     * e calculada pela Library PatientColor para garantir legibilidade.
      */
     public function events(): ResponseInterface
     {
@@ -170,12 +174,17 @@ class AppointmentController extends BaseController
         $events = [];
 
         foreach ($appointments as $appointment) {
+            $patientColor = (string) ($appointment['patient_color'] ?? '');
+
             $events[] = [
-                'id'    => (int) $appointment['id'],
-                'title' => $appointment['patient_name'] ?? 'Paciente',
-                'start' => $this->toIso8601((string) ($appointment['start_time'] ?? '')),
-                'end'   => $this->toIso8601((string) ($appointment['end_time'] ?? '')),
-                'color' => $this->statusColor((string) ($appointment['status'] ?? 'agendado')),
+                'id'        => (int) $appointment['id'],
+                'text'      => $appointment['patient_name'] ?? 'Paciente',
+                'start'     => $this->toLocalIso8601((string) ($appointment['start_time'] ?? '')),
+                'end'       => $this->toLocalIso8601((string) ($appointment['end_time'] ?? '')),
+                'resource'  => (string) ($appointment['professional_id'] ?? ''),
+                'backColor' => $patientColor !== '' ? $patientColor : '#3b82f6',
+                'fontColor' => PatientColor::getContrastText($patientColor),
+                'status'    => (string) ($appointment['status'] ?? 'agendado'),
             ];
         }
 
@@ -183,7 +192,8 @@ class AppointmentController extends BaseController
     }
 
     /**
-     * Atualiza data/hora de um agendamento apos drag-and-drop no FullCalendar.
+     * Atualiza data/hora e, opcionalmente, o profissional de um agendamento
+     * apos drag-and-drop no DayPilot.
      */
     public function updateSchedule(): ResponseInterface
     {
@@ -210,8 +220,29 @@ class AppointmentController extends BaseController
             return $this->jsonError(422, 'O horario de fim deve ser posterior ao horario de inicio.');
         }
 
-        $professionalId = (int) ($appointment['professional_id'] ?? 0);
-        $forceOverride  = filter_var($payload['force_override'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $professionalId       = (int) ($appointment['professional_id'] ?? 0);
+        $targetProfessionalId = (int) ($payload['professional_id'] ?? 0);
+
+        $updateData = [
+            'start_time' => $startTime,
+            'end_time'   => $endTime,
+        ];
+
+        if ($targetProfessionalId > 0 && $targetProfessionalId !== $professionalId) {
+            $professional = $this->userModel
+                ->where('id', $targetProfessionalId)
+                ->where('is_active', 1)
+                ->first();
+
+            if ($professional === null) {
+                return $this->jsonError(422, 'Profissional invalido.');
+            }
+
+            $professionalId                = $targetProfessionalId;
+            $updateData['professional_id'] = $targetProfessionalId;
+        }
+
+        $forceOverride = filter_var($payload['force_override'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         if (! $forceOverride) {
             $conflicts = $this->appointmentModel->findConflicts($professionalId, $startTime, $endTime, $id);
@@ -227,10 +258,7 @@ class AppointmentController extends BaseController
             }
         }
 
-        if (! $this->appointmentModel->update($id, [
-            'start_time' => $startTime,
-            'end_time'   => $endTime,
-        ])) {
+        if (! $this->appointmentModel->update($id, $updateData)) {
             return $this->jsonError(500, 'Falha ao atualizar o agendamento.', $this->appointmentModel->errors());
         }
 
@@ -299,23 +327,11 @@ class AppointmentController extends BaseController
         return $timestamp === false ? null : date('Y-m-d', $timestamp);
     }
 
-    private function statusColor(string $status): string
-    {
-        return match ($status) {
-            'confirmado'         => '#22c55e',
-            'realizado'          => '#10b981',
-            'falta_paciente'     => '#ef4444',
-            'falta_profissional' => '#f59e0b',
-            'cancelado'          => '#9ca3af',
-            default              => '#3b82f6',
-        };
-    }
-
-    private function toIso8601(string $datetime): string
+    private function toLocalIso8601(string $datetime): string
     {
         $timestamp = strtotime($datetime);
 
-        return $timestamp === false ? '' : date('Y-m-d\TH:i:s\Z', $timestamp);
+        return $timestamp === false ? '' : date('Y-m-d\TH:i:s', $timestamp);
     }
 
     private function nullableId(mixed $value): ?int
