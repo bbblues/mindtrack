@@ -43,8 +43,8 @@ fi
 # ---------------------------------------------------------------------------
 # 1. Atualiza o codigo-fonte
 # ---------------------------------------------------------------------------
-info "[1/5] Atualizando o codigo (git pull origin main)"
-git pull origin main
+info "[1/5] Atualizando o codigo (git pull origin master)"
+git pull origin master
 
 # ---------------------------------------------------------------------------
 # 2. Instala/atualiza as dependencias de producao

@@ -318,7 +318,7 @@ bash deploy.sh
 
 O `deploy.sh` executa, em ordem:
 
-1. `git pull origin main`
+1. `git pull origin master`
 2. `composer install --no-dev --optimize-autoloader --classmap-authoritative`
 3. `php spark migrate`
 4. Limpeza de caches/logs (`cache:clear`, `logs:clear`, `debugbar:clear`)
@@ -326,6 +326,10 @@ O `deploy.sh` executa, em ordem:
 
 > Se preferir não usar `git pull` (envio manual via SCP), comente a etapa 1 do
 > script e rode as demais etapas.
+
+> **O `deploy.sh` não executa seeders**, por segurança. O `DemoDataSeeder` deve
+> ser rodado **manualmente e uma única vez** na VPS, conforme a seção 8:
+> `sudo -u www-data php spark db:seed DemoDataSeeder --force`.
 
 ---
 
