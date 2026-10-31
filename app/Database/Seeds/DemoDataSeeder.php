@@ -26,8 +26,8 @@ class DemoDataSeeder extends Seeder
 
     public function run()
     {
-        if (ENVIRONMENT === 'production') {
-            echo "Bloqueado em produção.\n";
+        if (ENVIRONMENT === 'production' && !in_array('--force', $_SERVER['argv'] ?? [])) {
+            echo "Bloqueado.\n";
 
             return;
         }

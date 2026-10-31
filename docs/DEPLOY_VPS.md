@@ -173,7 +173,7 @@ database.default.password = ESCOLHA_UMA_SENHA_FORTE
 
 ---
 
-## 8. Instalar as dependências e rodar as migrations
+## 8. Instalar as dependências, rodar as migrations e popular os dados de demonstração
 
 ```bash
 cd /var/www/mindtrack
@@ -189,6 +189,42 @@ sudo php spark key:generate
 
 > O comando `php spark key:generate` escreve a chave diretamente no `.env`.
 > Para apenas visualizar sem gravar, use `php spark key:generate --show`.
+
+### Popular os dados de demonstração (opcional)
+
+Para criar a clínica de demonstração (`clinica-teste`), com paciente, agenda e
+evoluções de exemplo:
+
+```bash
+cd /var/www/mindtrack
+sudo -u www-data php spark db:seed DemoDataSeeder --force
+```
+
+> **Por que o `--force`?** O `DemoDataSeeder` tem uma trava própria: com
+> `CI_ENVIRONMENT = production` ele imprime `Bloqueado.` e encerra sem gravar
+> nada. A flag `--force` libera a execução.
+>
+> - Use `--force` **literal** (dois hífens): `-f` e `--force=1` **não** liberam a trava.
+> - O `db:seed` do CI4 não repassa opções ao seeder; a liberação é lida de
+>   `$_SERVER['argv']`, por isso a flag precisa ir na linha de comando.
+> - O seeder é **idempotente**: se o tenant `clinica-teste` já existir, ele apenas
+>   garante o usuário admin e não duplica os dados.
+
+Depois do seed, **troque as senhas padrão** (`password`) dos usuários criados:
+
+| Perfil | E-mail | Senha inicial |
+| --- | --- | --- |
+| Admin | `admin@clinica-teste.com` | `password` |
+| Profissional | `prof1@mindtrack.com` | `password` |
+
+> Essas credenciais estão versionadas no repositório e são públicas. Troque-as
+> pela interface do sistema (ou remova os usuários demo) antes de liberar o
+> acesso, ainda no servidor de produção.
+
+> Se for rodar apenas a seed oficial do sistema (papéis, módulos, configurações)
+> em vez dos dados de demonstração, use `php spark db:seed CoreSeeder`,
+> `php spark db:seed RoleSeeder` e `php spark db:seed SettingsSeeder` — nenhum
+> deles exige `--force`.
 
 ---
 
