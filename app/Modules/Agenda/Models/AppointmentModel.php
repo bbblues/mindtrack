@@ -125,6 +125,25 @@ class AppointmentModel extends BaseModel
     }
 
     /**
+     * Busca um agendamento pelo id com os dados necessarios para montar o
+     * evento do DayPilot (nome/cor do paciente e nome do profissional).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function eventById(int $id): ?array
+    {
+        $row = $this->newQuery()
+            ->select($this->table . '.*, patients.name AS patient_name, patients.color AS patient_color, users.name AS professional_name')
+            ->join('patients', 'patients.id = ' . $this->table . '.patient_id', 'left')
+            ->join('users', 'users.id = ' . $this->table . '.professional_id', 'left')
+            ->where($this->table . '.id', $id)
+            ->get()
+            ->getRowArray();
+
+        return $row !== null ? $row : null;
+    }
+
+    /**
      * Busca agendamentos conflitantes para um profissional no intervalo
      * [startTime, endTime). Agendamentos cancelados nao bloqueiam.
      *

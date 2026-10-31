@@ -172,6 +172,50 @@
         </div>
     </div>
 
+    <!-- Modal: Reagendar (movimentação horizontal) -->
+    <div x-show="moveModal.open" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" @keydown.escape.window="cancelMove()">
+        <div class="w-full max-w-md rounded-xl bg-white shadow-xl" @click.outside="cancelMove()">
+            <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                <h3 class="text-lg font-semibold text-gray-800">Reagendar agendamento</h3>
+                <button type="button" @click="cancelMove()" class="rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600" aria-label="Fechar">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="space-y-4 p-6">
+                <div class="rounded-lg bg-blue-50 px-4 py-3">
+                    <p class="text-sm font-semibold text-blue-800" x-text="moveModal.patientName || '—'"></p>
+                    <p class="mt-1 text-xs text-blue-700" x-show="moveModal.professionalName" x-text="moveModal.professionalName"></p>
+                </div>
+
+                <div>
+                    <span class="block text-xs font-semibold uppercase tracking-wide text-gray-400">Nova data</span>
+                    <p class="mt-1 text-sm font-medium text-gray-800" x-text="moveModal.dateLabel || '—'"></p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="move_start_time" class="mb-1 block text-sm font-medium text-gray-700">Hora de início *</label>
+                        <input type="time" id="move_start_time" x-model="moveModal.startTime" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                    </div>
+                    <div>
+                        <label for="move_end_time" class="mb-1 block text-sm font-medium text-gray-700">Hora de fim *</label>
+                        <input type="time" id="move_end_time" x-model="moveModal.endTime" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                    </div>
+                </div>
+
+                <p class="text-xs text-gray-500">Confirme os horários para reagendar. Os dados atuais já vêm preenchidos.</p>
+            </div>
+
+            <div class="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+                <button type="button" @click="cancelMove()" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Cancelar</button>
+                <button type="button" @click="confirmMove()" :disabled="moveModal.saving" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" x-text="moveModal.saving ? 'Salvando...' : 'Confirmar'"></button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Conflito de horário -->
     <div x-show="conflict.open" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
         <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl" @click.outside="conflict.open = false">
@@ -258,6 +302,9 @@ function agendaApp() {
     const professionals = <?= json_encode($agendaProfessionals) ?>;
     let dayCalendar = null;
     let weekScheduler = null;
+    let pendingMoveResolve = null;
+    let pendingMoveSnapshot = null;
+    let horizontalIntercepted = false;
 
     function buildColumns() {
         return professionals.map((p) => ({ id: String(p.id), name: p.name }));
@@ -268,7 +315,10 @@ function agendaApp() {
     }
 
     function toJsDate(date) {
-        return new Date(date.getYear(), date.getMonth() - 1, date.getDay(), date.getHours(), date.getMinutes(), date.getSeconds());
+        // DayPilot.Date.getMonth() já retorna o mês zero-based (0-11), igual ao
+        // construtor de Date do JavaScript. Subtrair 1 aqui deslocava a data um
+        // mês para trás (ex.: um card solto em 29/10 virava 29/09).
+        return new Date(date.getYear(), date.getMonth(), date.getDay(), date.getHours(), date.getMinutes(), date.getSeconds());
     }
 
     function iso(date) {
@@ -307,6 +357,17 @@ function agendaApp() {
         conflict: { open: false, conflicts: [] },
         pendingPayload: null,
         selected: { open: false, event: null },
+        moveModal: {
+            open: false,
+            saving: false,
+            patientName: '',
+            professionalName: '',
+            date: '',
+            dateLabel: '',
+            startTime: '',
+            endTime: '',
+            professionalId: null,
+        },
         toast: { open: false, message: '', type: 'success' },
         toastTimer: null,
         view: 'day',
@@ -434,6 +495,8 @@ function agendaApp() {
             const range = this.fetchRange();
             const events = await this.fetchEvents(range.start, range.end);
 
+            console.log('[Agenda] refresh:', { view: this.view, range, count: events.length, events });
+
             if (this.view === 'day' && dayCalendar) {
                 dayCalendar.update({ startDate: this.dateStr, columns: buildColumns(), events });
             } else if (this.view === 'week' && weekScheduler) {
@@ -457,14 +520,19 @@ function agendaApp() {
         },
         async fetchEvents(start, end) {
             const params = new URLSearchParams({ start, end });
-            const response = await fetch(<?= json_encode(site_url('agenda/events')) ?> + '?' + params.toString());
+            const url = <?= json_encode(site_url('agenda/events')) ?> + '?' + params.toString();
+            const response = await fetch(url);
 
             if (! response.ok) {
                 alert('Falha ao carregar os agendamentos.');
                 return [];
             }
 
-            return response.json();
+            const events = await response.json();
+
+            console.log('[Agenda] fetchEvents:', { start, end, count: events.length, events });
+
+            return events;
         },
         initDayCalendar() {
             dayCalendar = new DayPilot.Calendar('dayView', {
@@ -478,6 +546,7 @@ function agendaApp() {
                 eventResizeHandling: 'Disabled',
                 timeRangeSelectedHandling: 'Disabled',
                 onEventClick: (args) => this.handleEventClick(args.e),
+                onEventMove: (args) => this.handleEventMove(args),
                 onEventMoved: (args) => this.handleEventMoved(args),
                 onBeforeEventRender: (args) => this.applyEventStyle(args),
             });
@@ -505,6 +574,7 @@ function agendaApp() {
                 eventResizeHandling: 'Disabled',
                 timeRangeSelectedHandling: 'Disabled',
                 onEventClick: (args) => this.handleEventClick(args.e),
+                onEventMove: (args) => this.handleEventMove(args),
                 onEventMoved: (args) => this.handleEventMoved(args),
                 onBeforeEventRender: (args) => this.applyEventStyle(args),
             });
@@ -597,7 +667,300 @@ function agendaApp() {
                 },
             }));
         },
+        handleEventMove(args) {
+            // Visão Dia: drag-and-drop livre e direto. Não interceptamos nada
+            // aqui; a ação padrão move o card e o onEventMoved salva em background.
+            if (this.view === 'day') {
+                return;
+            }
+
+            // Visão Semana: onEventMove dispara ANTES da ação padrão. No DayPilot
+            // Lite o Calendar (visão Dia) não expõe args.async/args.loaded, então a
+            // decisão precisa ser síncrona:
+            // - Mesmo dia e mesmo profissional (só a hora mudou): não intervém;
+            //   a ação padrão move o card e o onEventMoved salva em background.
+            // - Troca de dia e/ou de profissional: reverte na hora com
+            //   preventDefault() e abre o modal para confirmar os horários.
+            if (this.isVerticalOnly(args)) {
+                return;
+            }
+
+            // Valores originais (antes do arrasto) usados para manter o card
+            // visível na posição de origem enquanto o modal está aberto.
+            const originalStart = args.e.start();
+            const originalEnd = args.e.end ? args.e.end() : null;
+            const originalResource = args.e.data.resource != null ? args.e.data.resource : null;
+
+            const newStart = args.newStart || originalStart;
+            const newEnd = args.newEnd || originalEnd;
+
+            const newResource = args.newResource != null
+                ? args.newResource
+                : originalResource;
+            const professionalId = newResource != null ? Number(newResource) : null;
+            const professional = professionals.find((p) => Number(p.id) === professionalId);
+
+            const snapshot = {
+                id: Number(args.e.data.id),
+                patientName: args.e.data.text || 'Paciente',
+                date: isoDate(toJsDate(newStart)),
+                startTime: newStart.toString('HH:mm'),
+                endTime: newEnd ? newEnd.toString('HH:mm') : this.addMinutes(newStart.toString('HH:mm'), this.defaultDuration),
+                professionalId,
+                professionalName: professional ? professional.name : '',
+            };
+
+            console.log('[Agenda] handleEventMove (week):', {
+                newStartRaw: newStart.toString(),
+                newEndRaw: newEnd ? newEnd.toString() : null,
+                computedDate: snapshot.date,
+                snapshot,
+            });
+
+            args.preventDefault();
+
+            // O preventDefault() impede a atualização dos dados, mas no
+            // DayPilot Lite o card pode não ser revertido visualmente. Força a
+            // restauração dos valores originais para mantê-lo no lugar.
+            args.e.data.start = originalStart;
+            args.e.data.end = originalEnd;
+            args.e.data.resource = originalResource;
+
+            this.startHorizontalMove(snapshot).catch(() => {});
+        },
+        isVerticalOnly(args) {
+            const originalDay = isoDate(toJsDate(args.e.start()));
+            const newDay = isoDate(toJsDate(args.newStart));
+
+            const originalResource = args.e.data.resource != null
+                ? String(args.e.data.resource)
+                : '';
+            const newResource = args.newResource != null
+                ? String(args.newResource)
+                : originalResource;
+
+            return originalDay === newDay && originalResource === newResource;
+        },
+        async startHorizontalMove(snapshot) {
+            // Aguarda o usuário confirmar ou cancelar o reagendamento. A
+            // re-renderização dos eventos é disparada por confirmMove() e
+            // cancelMove() após o modal ser fechado.
+            await this.openMoveModal(snapshot);
+        },
+        openMoveModal(snapshot) {
+            // Garante que um modal anterior não fique pendente.
+            this.resolveMove(false);
+            horizontalIntercepted = true;
+
+            return new Promise((resolve) => {
+                pendingMoveSnapshot = snapshot;
+                pendingMoveResolve = resolve;
+
+                this.moveModal.patientName = snapshot.patientName;
+                this.moveModal.professionalName = snapshot.professionalName;
+                this.moveModal.date = snapshot.date;
+                this.moveModal.dateLabel = this.formatMoveDate(snapshot.date);
+                this.moveModal.startTime = snapshot.startTime;
+                this.moveModal.endTime = snapshot.endTime;
+                this.moveModal.professionalId = snapshot.professionalId;
+                this.moveModal.saving = false;
+                this.moveModal.open = true;
+            });
+        },
+        formatMoveDate(isoStr) {
+            if (! isoStr) {
+                return '';
+            }
+
+            return new Date(isoStr + 'T00:00:00').toLocaleDateString('pt-BR', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+            });
+        },
+        buildModalPayload() {
+            if (! pendingMoveSnapshot) {
+                return null;
+            }
+
+            const date = this.moveModal.date;
+            const startTime = this.moveModal.startTime;
+            const endTime = this.moveModal.endTime;
+
+            if (! date || ! startTime || ! endTime) {
+                alert('Informe a data e os horários de início e fim.');
+                return null;
+            }
+
+            if (endTime <= startTime) {
+                alert('O horário de fim deve ser posterior ao horário de início.');
+                return null;
+            }
+
+            const payload = {
+                id: Number(pendingMoveSnapshot.id),
+                start: date + ' ' + startTime + ':00',
+                end: date + ' ' + endTime + ':00',
+            };
+
+            const professionalId = this.moveModal.professionalId != null
+                ? this.moveModal.professionalId
+                : pendingMoveSnapshot.professionalId;
+
+            if (professionalId != null && professionalId !== '') {
+                payload.professional_id = Number(professionalId);
+            }
+
+            return payload;
+        },
+        async confirmMove() {
+            if (this.moveModal.saving) {
+                return;
+            }
+
+            const payload = this.buildModalPayload();
+
+            if (! payload) {
+                // buildModalPayload já exibiu a mensagem de validação.
+                return;
+            }
+
+            console.log('[Agenda] confirmMove payload:', payload);
+
+            this.moveModal.saving = true;
+            const outcome = await this.persistMove(payload);
+            this.moveModal.saving = false;
+
+            if (outcome.ok) {
+                this.moveModal.open = false;
+                this.resolveMove(true);
+
+                console.log('[Agenda] confirmMove salvo:', { payload, event: outcome.event });
+
+                // Atualiza o card manualmente na nova posição. Se o backend não
+                // devolveu o evento atualizado (ou o card não está mais na lista),
+                // cai no refresh completo como fallback.
+                if (! this.applyEventUpdate(outcome.event)) {
+                    this.refresh().catch(() => {});
+                }
+
+                return;
+            }
+
+            if (outcome.keepOpen) {
+                // Erro de validação do backend: mantém o modal aberto.
+                return;
+            }
+
+            this.moveModal.open = false;
+            this.resolveMove(false);
+            // A movimentação não foi salva: restaura o card à posição original.
+            this.refresh().catch(() => {});
+        },
+        cancelMove() {
+            if (this.moveModal.saving) {
+                return;
+            }
+
+            this.moveModal.open = false;
+            this.resolveMove(false);
+            // Garante que o card volte à posição original após cancelar.
+            this.refresh().catch(() => {});
+        },
+        resolveMove(confirmed) {
+            if (! pendingMoveResolve) {
+                return;
+            }
+
+            const resolve = pendingMoveResolve;
+            pendingMoveResolve = null;
+            pendingMoveSnapshot = null;
+            horizontalIntercepted = false;
+            resolve(confirmed);
+        },
+        async persistMove(payload) {
+            try {
+                const result = await this.postUpdate(payload);
+                this.updateCsrf(result.data);
+
+                if (result.status === 409) {
+                    const proceed = confirm('Conflito de horário para o profissional. Deseja continuar mesmo assim?');
+
+                    if (! proceed) {
+                        return { ok: false, keepOpen: false };
+                    }
+
+                    const forced = await this.postUpdate({ ...payload, force_override: true });
+                    this.updateCsrf(forced.data);
+
+                    if (forced.status !== 200) {
+                        alert(forced.data.message || 'Não foi possível mover o agendamento.');
+                        return { ok: false, keepOpen: false };
+                    }
+
+                    return { ok: true, event: forced.data.event || null };
+                }
+
+                if (result.status !== 200) {
+                    alert(result.data.message || 'Não foi possível mover o agendamento.');
+                    return { ok: false, keepOpen: result.status === 422 };
+                }
+
+                return { ok: true, event: result.data.event || null };
+            } catch (error) {
+                alert('Erro ao mover o agendamento.');
+                return { ok: false, keepOpen: false };
+            }
+        },
+        applyEventUpdate(event) {
+            if (! event || ! event.id) {
+                return false;
+            }
+
+            const id = String(event.id);
+            const numericId = Number(event.id);
+            const findEvent = (scheduler) => scheduler.events.find(id) || scheduler.events.find(numericId);
+            const start = new DayPilot.Date(event.start);
+            const end = new DayPilot.Date(event.end);
+
+            if (this.view === 'week' && weekScheduler) {
+                const existing = findEvent(weekScheduler);
+
+                if (existing) {
+                    existing.data.start = start;
+                    existing.data.end = end;
+                    existing.data.resource = event.resource != null ? String(event.resource) : existing.data.resource;
+                    weekScheduler.events.update(existing);
+
+                    console.log('[Agenda] applyEventUpdate (week):', { id, start: event.start, end: event.end, resource: event.resource });
+
+                    return true;
+                }
+            }
+
+            if (this.view === 'day' && dayCalendar) {
+                const existing = findEvent(dayCalendar);
+
+                if (existing) {
+                    existing.data.start = start;
+                    existing.data.end = end;
+                    existing.data.resource = event.resource != null ? String(event.resource) : existing.data.resource;
+                    dayCalendar.events.update(existing);
+
+                    console.log('[Agenda] applyEventUpdate (day):', { id, start: event.start, end: event.end, resource: event.resource });
+
+                    return true;
+                }
+            }
+
+            return false;
+        },
         async handleEventMoved(args) {
+            // Rede de segurança: movimentos horizontais são revertidos em
+            // onEventMove e tratados pelo modal; não devem ser salvos aqui.
+            if (horizontalIntercepted) {
+                horizontalIntercepted = false;
+                return;
+            }
+
             const payload = {
                 id: Number(args.e.data.id),
                 start: iso(args.newStart),
@@ -611,6 +974,8 @@ function agendaApp() {
             if (newResource != null && newResource !== '') {
                 payload.professional_id = Number(newResource);
             }
+
+            console.log('[Agenda] handleEventMoved:', { view: this.view, payload, newResource });
 
             try {
                 const result = await this.postUpdate(payload);

@@ -30,5 +30,11 @@
 - **Navegação:** Botão `< Semana Anterior` (subtrai 7 dias), botão `Semana Atual` (retorna ao Domingo da semana corrente), e botão `Próxima Semana >` (adiciona 7 dias).
 
 ## Interações
-1. **Drag-and-Drop de Agendamentos:** Os cards podem ser arrastados para outros horários/dias/profissionais. A troca de profissional e horário deve ser persistida no banco. A validação de conflito (Soft Validation) deve ser acionada.
-2. **Clique no Card:** Abre o modal de detalhes com a opção "Registrar Evolução".
+1. **Drag-and-Drop na Visão Dia:** O comportamento é **livre e direto**. Arrastar o card para qualquer lugar (mudando horário ou profissional) **salva imediatamente** via AJAX, sem abrir modal. A Soft Validation é aplicada.
+2. **Drag-and-Drop na Visão Semana:**
+   - **Movimentação Horizontal (Troca de Dia):** Ao arrastar o card para outro dia, o sistema deve **abrir um modal (popup)**.
+     - O modal deve exibir a nova data e permitir que o usuário ajuste a **Hora de Início** e **Hora de Fim** (pré-preenchidas com o horário original).
+     - Se o usuário confirmar, envia os dados via AJAX e o card deve aparecer na nova posição.
+     - Se o usuário cancelar, o card retorna à posição original.
+   - **Movimentação Vertical (Troca de Profissional):** Também deve **abrir o modal** para ajuste de horário, pois a linha do profissional mudou.
+3. **Clique no Card:** Abre o modal de detalhes com a opção "Registrar Evolução".

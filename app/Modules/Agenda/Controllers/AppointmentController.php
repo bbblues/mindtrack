@@ -184,21 +184,34 @@ class AppointmentController extends BaseController
         $events = [];
 
         foreach ($appointments as $appointment) {
-            $patientColor = (string) ($appointment['patient_color'] ?? '');
-
-            $events[] = [
-                'id'        => (int) $appointment['id'],
-                'text'      => $appointment['patient_name'] ?? 'Paciente',
-                'start'     => $this->toLocalIso8601((string) ($appointment['start_time'] ?? '')),
-                'end'       => $this->toLocalIso8601((string) ($appointment['end_time'] ?? '')),
-                'resource'  => (string) ($appointment['professional_id'] ?? ''),
-                'backColor' => $patientColor !== '' ? $patientColor : '#3b82f6',
-                'fontColor' => PatientColor::getContrastText($patientColor),
-                'status'    => (string) ($appointment['status'] ?? 'agendado'),
-            ];
+            $events[] = $this->formatEvent($appointment);
         }
 
         return $this->response->setJSON($events);
+    }
+
+    /**
+     * Converte um registro de agendamento (ja com os joins de paciente e
+     * profissional) no formato de evento esperado pelo DayPilot.
+     *
+     * @param array<string, mixed> $appointment
+     *
+     * @return array<string, mixed>
+     */
+    private function formatEvent(array $appointment): array
+    {
+        $patientColor = (string) ($appointment['patient_color'] ?? '');
+
+        return [
+            'id'        => (int) $appointment['id'],
+            'text'      => $appointment['patient_name'] ?? 'Paciente',
+            'start'     => $this->toLocalIso8601((string) ($appointment['start_time'] ?? '')),
+            'end'       => $this->toLocalIso8601((string) ($appointment['end_time'] ?? '')),
+            'resource'  => (string) ($appointment['professional_id'] ?? ''),
+            'backColor' => $patientColor !== '' ? $patientColor : '#3b82f6',
+            'fontColor' => PatientColor::getContrastText($patientColor),
+            'status'    => (string) ($appointment['status'] ?? 'agendado'),
+        ];
     }
 
     /**
@@ -272,11 +285,18 @@ class AppointmentController extends BaseController
             return $this->jsonError(500, 'Falha ao atualizar o agendamento.', $this->appointmentModel->errors());
         }
 
-        return $this->response->setJSON([
+        $response = [
             'success'   => true,
             'message'   => 'Agendamento atualizado.',
             'csrf_hash' => csrf_hash(),
-        ]);
+        ];
+
+        $updated = $this->appointmentModel->eventById($id);
+        if ($updated !== null) {
+            $response['event'] = $this->formatEvent($updated);
+        }
+
+        return $this->response->setJSON($response);
     }
 
 
