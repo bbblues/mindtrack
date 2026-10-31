@@ -2,7 +2,22 @@
 
 <?= $this->section('content') ?>
 
-<style>[x-cloak]{display:none!important}.agenda-event-name{font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.agenda-event-time{font-size:11px;line-height:1.2;opacity:.9}</style>
+<style>
+[x-cloak]{display:none!important}
+.agenda-event-name{font-weight:bold;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agenda-event-time{font-size:11px;line-height:1.3;opacity:.75;font-weight:normal}
+#weekView{overflow-x:hidden}
+
+/* Cards de agendamento: preenchidos pela cor do paciente, sem barra/borda lateral */
+.agenda-event-card.scheduler_default_event,
+.agenda-event-card.calendar_default_event{border:none!important;box-shadow:none!important}
+.agenda-event-card .scheduler_default_event_inner,
+.agenda-event-card .calendar_default_event_inner{font-weight:bold!important;padding:4px 6px!important;border:none!important}
+.agenda-event-card .scheduler_default_event_bar,
+.agenda-event-card .calendar_default_event_bar,
+.agenda-event-card .scheduler_default_event_bar_background,
+.agenda-event-card .calendar_default_event_bar_background{display:none!important}
+</style>
 <!-- This software includes DayPilot (https://www.daypilot.org). License: Apache License 2.0 -->
 <script src="https://unpkg.com/@daypilot/daypilot-lite-javascript@6.2.0/daypilot-javascript.min.js"></script>
 
@@ -42,35 +57,6 @@
             <button type="button" @click="currentWeek()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">Semana Atual</button>
             <button type="button" @click="nextWeek()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50">Próxima Semana ›</button>
             <span class="ml-2 text-sm font-medium text-gray-700" x-text="periodLabel"></span>
-        </div>
-    </div>
-
-    <div class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-        <div class="mb-2 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 8h16M4 16h16" />
-            </svg>
-            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Ordem dos profissionais</span>
-            <span class="text-xs text-gray-400">(arraste para reordenar)</span>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-            <template x-for="(p, index) in orderedProfessionals()" :key="p.id">
-                <div
-                    draggable="true"
-                    @dragstart="dragProfessional($event, index)"
-                    @dragover.prevent
-                    @drop="dropProfessional($event, index)"
-                    @dragend="dragProfessionalEnd()"
-                    :class="dragIndex === index ? 'opacity-40' : 'opacity-100'"
-                    class="inline-flex cursor-grab select-none items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 active:cursor-grabbing"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4M8 15l4 4 4-4" />
-                    </svg>
-                    <span x-text="p.name"></span>
-                </div>
-            </template>
-            <p x-show="orderedProfessionals().length === 0" class="text-sm text-gray-400">Nenhum profissional ativo para ordenar.</p>
         </div>
     </div>
 
@@ -261,14 +247,11 @@
 <script>
 <?php
 $agendaProfessionals = [];
-$agendaOrder = 0;
 foreach ($professionals as $professional) {
     $agendaProfessionals[] = [
-        'id'    => (int) $professional['id'],
-        'name'  => $professional['name'],
-        'order' => $agendaOrder,
+        'id'   => (int) $professional['id'],
+        'name' => $professional['name'],
     ];
-    $agendaOrder++;
 }
 ?>
 function agendaApp() {
@@ -276,24 +259,20 @@ function agendaApp() {
     let dayCalendar = null;
     let weekScheduler = null;
 
-    function orderedProfessionals() {
-        return professionals.slice().sort((a, b) => a.order - b.order);
-    }
-
     function buildColumns() {
-        return orderedProfessionals().map((p) => ({ id: String(p.id), name: p.name }));
+        return professionals.map((p) => ({ id: String(p.id), name: p.name }));
     }
 
     function buildResources() {
-        return orderedProfessionals().map((p) => ({ id: String(p.id), name: p.name }));
+        return professionals.map((p) => ({ id: String(p.id), name: p.name }));
     }
 
     function toJsDate(date) {
-        return new Date(date.getYear(), date.getMonth() - 1, date.getDay(), date.getHour(), date.getMinute(), date.getSecond());
+        return new Date(date.getYear(), date.getMonth() - 1, date.getDay(), date.getHours(), date.getMinutes(), date.getSeconds());
     }
 
     function iso(date) {
-        return date.toString("yyyy-MM-dd'T'HH:mm:ss");
+        return date.toString();
     }
 
     function isoDate(d) {
@@ -328,7 +307,6 @@ function agendaApp() {
         conflict: { open: false, conflicts: [] },
         pendingPayload: null,
         selected: { open: false, event: null },
-        dragIndex: null,
         toast: { open: false, message: '', type: 'success' },
         toastTimer: null,
         view: 'day',
@@ -353,6 +331,12 @@ function agendaApp() {
             window.addEventListener('agenda:eventClick', (event) => {
                 this.selected.event = event.detail;
                 this.selected.open = true;
+            });
+
+            window.addEventListener('resize', () => {
+                if (this.view === 'week') {
+                    this.fitWeekScheduler();
+                }
             });
 
             if (typeof DayPilot === 'undefined') {
@@ -495,6 +479,7 @@ function agendaApp() {
                 timeRangeSelectedHandling: 'Disabled',
                 onEventClick: (args) => this.handleEventClick(args.e),
                 onEventMoved: (args) => this.handleEventMoved(args),
+                onBeforeEventRender: (args) => this.applyEventStyle(args),
             });
             dayCalendar.init();
         },
@@ -505,13 +490,15 @@ function agendaApp() {
                 days: 7,
                 weekStarts: 0,
                 heightSpec: 'Auto',
+                width: '100%',
                 startDate: weekStartIso(this.dateStr),
                 timeHeaders: [
                     { groupBy: 'Day', format: 'dddd' },
                     { groupBy: 'Day', format: 'dd/MM' },
                 ],
                 resources: buildResources(),
-                cellWidth: 110,
+                cellWidth: 100,
+                rowHeaderWidth: 120,
                 rowHeight: 64,
                 eventHeight: 44,
                 eventMoveHandling: 'Update',
@@ -519,15 +506,41 @@ function agendaApp() {
                 timeRangeSelectedHandling: 'Disabled',
                 onEventClick: (args) => this.handleEventClick(args.e),
                 onEventMoved: (args) => this.handleEventMoved(args),
-                onBeforeEventRender: (args) => {
-                    const name = DayPilot.Util.escapeHtml(args.data.text || 'Paciente');
-                    const start = args.data.start.toString('HH:mm');
-                    const end = args.data.end.toString('HH:mm');
-
-                    args.data.html = '<div class="agenda-event-name">' + name + '</div><div class="agenda-event-time">' + start + ' - ' + end + '</div>';
-                },
+                onBeforeEventRender: (args) => this.applyEventStyle(args),
             });
             weekScheduler.init();
+            this.fitWeekScheduler();
+        },
+        fitWeekScheduler() {
+            if (! weekScheduler || this.view !== 'week') {
+                return;
+            }
+
+            const container = document.getElementById('weekView');
+
+            if (! container || container.clientWidth === 0) {
+                return;
+            }
+
+            const rowHeaderWidth = weekScheduler.rowHeaderWidth || 120;
+            const available = Math.max(0, container.clientWidth - rowHeaderWidth);
+            const cellWidth = Math.max(80, Math.floor(available / 7) - 2);
+
+            weekScheduler.update({ cellWidth });
+        },
+        applyEventStyle(args) {
+            const name = DayPilot.Util.escapeHtml(args.data.text || 'Paciente');
+            const start = args.data.start.toString('HH:mm');
+            const end = args.data.end.toString('HH:mm');
+
+            const timeString = start + ' - ' + end;
+
+            args.data.html = ''
+                + '<div style="display:flex;flex-direction:column;justify-content:center;height:100%;line-height:1.2;padding:2px 4px;overflow:hidden;">'
+                + '<div style="font-weight:bold;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + name + '</div>'
+                + '<div style="font-size:10px;opacity:.85;font-weight:normal;white-space:nowrap;">' + timeString + '</div>'
+                + '</div>';
+            args.data.cssClass = 'agenda-event-card';
         },
         disposeCalendars() {
             if (dayCalendar) {
@@ -656,13 +669,6 @@ function agendaApp() {
 
             return { status: response.status, data };
         },
-        reorderProfessionals(fromIndex, toIndex) {
-            const [moved] = professionals.splice(fromIndex, 1);
-            professionals.splice(toIndex, 0, moved);
-            professionals.forEach((p, index) => { p.order = index; });
-
-            this.refresh();
-        },
         showToast(message, type = 'success') {
             this.toast.message = message;
             this.toast.type = type;
@@ -670,55 +676,6 @@ function agendaApp() {
 
             clearTimeout(this.toastTimer);
             this.toastTimer = setTimeout(() => { this.toast.open = false; }, 2500);
-        },
-        dragProfessional(event, index) {
-            this.dragIndex = index;
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', String(index));
-        },
-        dropProfessional(event, index) {
-            event.preventDefault();
-
-            const from = this.dragIndex;
-            if (from === null || from === index) {
-                this.dragIndex = null;
-                return;
-            }
-
-            this.reorderProfessionals(from, index);
-            this.dragIndex = null;
-            this.saveProfessionalOrder();
-        },
-        dragProfessionalEnd() {
-            this.dragIndex = null;
-        },
-        async saveProfessionalOrder() {
-            try {
-                const response = await fetch(<?= json_encode(site_url('agenda/update-professional-order')) ?>, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': this.token,
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    body: JSON.stringify({ ids: orderedProfessionals().map((p) => Number(p.id)) }),
-                });
-
-                const data = await response.json();
-
-                if (data.csrf_hash) {
-                    this.token = data.csrf_hash;
-                }
-
-                if (! data.success) {
-                    this.showToast(data.message || 'Erro ao salvar a ordem.', 'error');
-                    return;
-                }
-
-                this.showToast(data.message || 'Ordem salva com sucesso.', 'success');
-            } catch (error) {
-                this.showToast('Erro ao salvar a ordem.', 'error');
-            }
         },
         buildPayload(forceOverride) {
             const combine = (time) => time ? (this.form.date + ' ' + time + ':00') : null;

@@ -14,15 +14,20 @@ class UserModel extends BaseModel
     protected $beforeUpdate = ['hashPassword'];
 
     protected $validationRules = [
-        'name'     => 'required|max_length[255]',
-        'email'    => 'required|valid_email|max_length[255]',
-        'password' => 'permit_empty|min_length[8]',
-        'unit_id'  => 'permit_empty|integer',
+        'name'         => 'required|max_length[255]',
+        'email'        => 'required|valid_email|max_length[255]',
+        'password'     => 'permit_empty|min_length[8]',
+        'unit_id'      => 'permit_empty|integer',
+        'agenda_order' => 'permit_empty|integer|greater_than_equal_to[0]',
     ];
 
     protected $validationMessages = [
         'unit_id' => [
             'integer' => 'Selecione uma unidade valida.',
+        ],
+        'agenda_order' => [
+            'integer'               => 'A ordem na agenda deve ser um número inteiro.',
+            'greater_than_equal_to' => 'A ordem na agenda deve ser maior ou igual a zero.',
         ],
     ];
 
@@ -127,40 +132,6 @@ class UserModel extends BaseModel
             ->getResultArray();
 
         return array_values(array_filter(array_map('strval', array_column($rows, 'slug'))));
-    }
-
-    /**
-     * Persiste a ordem dos profissionais na agenda gravando o indice de cada
-     * usuario na coluna `agenda_order`.
-     *
-     * Usa builders novos para nao reaproveitar estado de query de chamadas
-     * anteriores na mesma requisicao.
-     *
-     * @param list<int> $orderedIds
-     */
-    public function updateAgendaOrder(array $orderedIds): bool
-    {
-        if ($orderedIds === []) {
-            return false;
-        }
-
-        $tenantId  = $this->currentTenantId();
-        $hasTenant = $this->tableHasTenantColumn('users');
-
-        foreach ($orderedIds as $index => $userId) {
-            $builder = $this->db->table('users')
-                ->where('id', (int) $userId)
-                ->where('is_active', 1)
-                ->where('deleted_at', null);
-
-            if ($tenantId !== null && $hasTenant) {
-                $builder->where('tenant_id', $tenantId);
-            }
-
-            $builder->update(['agenda_order' => $index]);
-        }
-
-        return true;
     }
 
     /**

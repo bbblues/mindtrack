@@ -50,12 +50,13 @@ class AppointmentController extends BaseController
             'title'           => 'Agenda',
             'date'            => $date,
             'professionals'   => $this->userModel
-                ->select('users.*')
+                ->select('users.*, (users.agenda_order = 0) AS agenda_unordered')
                 ->distinct()
                 ->join('role_user', 'role_user.user_id = users.id')
                 ->join('roles', 'roles.id = role_user.role_id')
                 ->where('roles.slug', 'profissional')
                 ->where('users.is_active', 1)
+                ->orderBy('agenda_unordered', 'ASC')
                 ->orderBy('users.agenda_order', 'ASC')
                 ->orderBy('users.name', 'ASC')
                 ->findAll(),
@@ -64,42 +65,6 @@ class AppointmentController extends BaseController
             'rooms'           => $this->roomModel->orderBy('name', 'ASC')->findAll(),
             'defaultDuration' => $this->defaultDurationMinutes(),
             'statusOptions'   => $this->statusOptions(),
-        ]);
-    }
-
-    /**
-     * Persiste a nova ordem dos profissionais na agenda.
-     *
-     * Recebe um array JSON com os IDs na ordem desejada.
-     */
-    public function updateProfessionalOrder(): ResponseInterface
-    {
-        $payload = $this->requestPayload();
-
-        $ids = $payload['ids'] ?? null;
-
-        if (! is_array($ids) || $ids === []) {
-            return $this->jsonError(422, 'A lista de profissionais e obrigatoria.');
-        }
-
-        $orderedIds = [];
-        foreach ($ids as $id) {
-            $intId = (int) $id;
-            if ($intId <= 0) {
-                return $this->jsonError(422, 'A lista de profissionais contem um ID invalido.');
-            }
-
-            $orderedIds[] = $intId;
-        }
-
-        if (! $this->userModel->updateAgendaOrder($orderedIds)) {
-            return $this->jsonError(500, 'Falha ao salvar a ordem dos profissionais.');
-        }
-
-        return $this->response->setJSON([
-            'success'   => true,
-            'message'   => 'Ordem salva com sucesso.',
-            'csrf_hash' => csrf_hash(),
         ]);
     }
 

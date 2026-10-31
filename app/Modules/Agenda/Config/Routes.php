@@ -13,5 +13,4 @@ $routes->group('agenda', ['filter' => 'auth'], static function ($routes) {
     $routes->get('events', [AppointmentController::class, 'events'], ['as' => 'agenda.events']);
     $routes->post('store', [AppointmentController::class, 'store'], ['as' => 'agenda.store']);
     $routes->post('update-schedule', [AppointmentController::class, 'updateSchedule'], ['as' => 'agenda.updateSchedule']);
-    $routes->post('update-professional-order', [AppointmentController::class, 'updateProfessionalOrder'], ['as' => 'agenda.updateProfessionalOrder']);
 });

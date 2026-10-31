@@ -1,30 +1,27 @@
 # Módulo de Configurações Avançadas (Settings)
 
 ## Entidades Gerenciáveis
-- `users`: Usuários da clínica (equipe, login, unidade e cargos).
-- `roles`: Cargos/papéis de acesso atribuídos aos usuários.
 - `units`: Unidades da clínica.
-- `specialties`: Especialidades (Fono, Psico, etc).
+- `specialties`: Especialidades.
 - `health_insurances`: Convênios.
 - `rooms`: Salas (vinculadas a uma unidade).
 - `tags`: Tags coloridas.
 - `absence_reasons` e `discharge_reasons`: Motivos de falta/alta.
 - `note_templates`: Modelos de evolução.
+- `users`: Funcionários da clínica (equipe).
+- `roles`: Cargos e permissões.
 
 ## Regras de Negócio CRÍTICAS
-1. **Isolamento Multi-Tenant:** Todos os cadastros DEVEM ser vinculados ao `tenant_id` do usuário logado. Um usuário da Clínica A não pode ver os cadastros da Clínica B.
-2. **Interface Central:** Uma tela de "Configurações" com um grid de cards visuais (como no sistema de referência). Ao clicar em um card, abre-se a tela de gestão daquele item.
-3. **CRUD Rápido:** Os cadastros são simples (geralmente só Nome/Cor). Devem usar modais com Alpine.js e Fetch API para criar/editar sem recarregar a página.
-4. **Equipe e Acessos:** A gestão de usuários e de cargos também é acessada pelo hub de configurações, pelos cards "Usuários" (`/settings/users`) e "Cargos e Papéis" (`/settings/roles`). Os controllers reaproveitam as mesmas telas de `/users` e `/roles`, mantendo links, actions e redirects no contexto em que o usuário está navegando.
+1. **Isolamento Multi-Tenant:** Todos os cadastros DEVEM ser vinculados ao `tenant_id` do usuário logado.
+2. **Interface Central:** Uma tela de "Configurações" com um grid de cards visuais. Ao clicar em um card, abre-se a tela de gestão daquele item.
+3. **CRUD Rápido:** Os cadastros devem usar modais com Alpine.js e Fetch API para criar/editar sem recarregar a página.
+4. **Equipe e Acessos:** O gerenciamento de usuários e cargos é feito dentro de Configurações, reaproveitando os controllers existentes.
 
-## Prioridade de Implementação (Para este Sprint)
-1. Tela Central (`/settings`).
-2. CRUD de Unidades.
-3. CRUD de Especialidades.
-4. CRUD de Convênios.
-
-## Prioridade de Implementação (Sprint 15 - Finalizando Configurações)
-5. CRUD de Salas (vinculadas a uma Unidade).
-6. CRUD de Tags (Nome e Cor).
-7. CRUD de Motivos de Falta e Motivos de Alta.
-8. CRUD de Modelos de Nota (Nome e Texto Padrão).
+## Ordenação de Profissionais (Peso)
+- **Objetivo:** Definir a ordem em que as colunas (Visão Dia) e linhas (Visão Semana) dos profissionais aparecem na Agenda.
+- **Regras:**
+  - Na tela de listagem de Usuários (equipe), adicionar um campo numérico chamado **"Ordem na Agenda"** (peso).
+  - O administrador pode digitar o número (ex: 1, 2, 3...) para cada profissional.
+  - A Agenda buscará os profissionais ordenados por esse campo de forma ascendente (`ORDER BY agenda_order ASC`).
+  - Profissionais sem o campo preenchido vão para o final da lista.
+- **Interface:** Um input numérico no formulário de criação/edição de usuário.

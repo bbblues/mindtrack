@@ -58,6 +58,7 @@
                             <th class="px-6 py-3">E-mail</th>
                             <th class="px-6 py-3">Cargos</th>
                             <th class="px-6 py-3">Unidade</th>
+                            <th class="px-6 py-3">Ordem</th>
                             <th class="px-6 py-3">Status</th>
                             <th class="px-6 py-3 text-right">Ações</th>
                         </tr>
@@ -86,6 +87,7 @@
                                     <?php endif; ?>
                                 </td>
                                 <td class="px-6 py-4 text-gray-600"><?= esc($user['unit_name'] ?? '—') ?></td>
+                                <td class="px-6 py-4 text-gray-600"><?= (int) ($user['agenda_order'] ?? 0) > 0 ? (int) $user['agenda_order'] : '—' ?></td>
                                 <td class="px-6 py-4">
                                     <?php if ((int) ($user['is_active'] ?? 0) === 1): ?>
                                         <span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Ativo</span>

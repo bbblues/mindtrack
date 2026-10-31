@@ -9,6 +9,11 @@ $formAction = $isEdit ? site_url($basePath . '/update/' . (int) $u['id']) : site
 $selectedUnitId = (string) old('unit_id', $u['unit_id'] ?? '');
 $selectedTenantId = (string) old('tenant_id', $u['tenant_id'] ?? '');
 $selectedRoleIds = array_map('intval', $selectedRoleIds);
+
+$agendaOrderValue = old('agenda_order', null);
+if ($agendaOrderValue === null || $agendaOrderValue === '') {
+    $agendaOrderValue = ((int) ($u['agenda_order'] ?? 0) > 0) ? (string) (int) $u['agenda_order'] : '';
+}
 ?>
 
 <div class="mx-auto max-w-4xl">
@@ -62,6 +67,12 @@ $selectedRoleIds = array_map('intval', $selectedRoleIds);
                             <option value="<?= (int) $unit['id'] ?>" <?= $selectedUnitId === (string) (int) $unit['id'] ? 'selected' : '' ?>><?= esc($unit['name']) ?></option>
                         <?php endforeach; ?>
                     </select>
+                </div>
+
+                <div>
+                    <label for="agenda_order" class="mb-1 block text-sm font-medium text-gray-700">Ordem na Agenda</label>
+                    <input type="number" id="agenda_order" name="agenda_order" min="0" step="1" value="<?= esc($agendaOrderValue) ?>" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                    <p class="mt-1 text-xs text-gray-500">Vazio = final da lista.</p>
                 </div>
 
                 <?php if ($isSuperAdmin): ?>

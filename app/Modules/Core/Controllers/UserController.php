@@ -82,7 +82,11 @@ class UserController extends BaseController
 
         $data['tenant_id']      = $this->resolveTenantId();
         $data['is_super_admin'] = $this->resolveIsSuperAdmin();
-        $data['agenda_order']   = $this->userModel->nextAgendaOrder($data['tenant_id']);
+
+        // Sem ordem informada, o novo profissional entra no fim da fila.
+        if ($data['agenda_order'] <= 0) {
+            $data['agenda_order'] = $this->userModel->nextAgendaOrder($data['tenant_id']);
+        }
 
         $userId = $this->userModel->insert($data);
 
@@ -176,7 +180,7 @@ class UserController extends BaseController
      */
     private function userDataFromRequest(bool $isUpdate = false): array
     {
-        $data = $this->request->getPost(['name', 'email', 'password', 'unit_id', 'is_active']);
+        $data = $this->request->getPost(['name', 'email', 'password', 'unit_id', 'is_active', 'agenda_order']);
 
         foreach ($data as $key => $value) {
             if (is_string($value)) {
@@ -190,10 +194,25 @@ class UserController extends BaseController
             unset($data['password']);
         }
 
-        $data['is_active'] = (int) ($data['is_active'] ?? 1);
-        $data['unit_id']   = ($data['unit_id'] ?? null) !== null ? (int) $data['unit_id'] : null;
+        $data['is_active']    = (int) ($data['is_active'] ?? 1);
+        $data['unit_id']      = ($data['unit_id'] ?? null) !== null ? (int) $data['unit_id'] : null;
+        $data['agenda_order'] = $this->normalizeAgendaOrder($data['agenda_order'] ?? null);
 
         return $data;
+    }
+
+    /**
+     * Converte o campo de ordem da agenda em inteiro (vazio vira 0 = final da lista).
+     */
+    private function normalizeAgendaOrder($value): int
+    {
+        if ($value === null || $value === '') {
+            return 0;
+        }
+
+        $int = (int) $value;
+
+        return $int >= 0 ? $int : 0;
     }
 
     /**
