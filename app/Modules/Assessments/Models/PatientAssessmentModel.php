@@ -3,6 +3,7 @@
 namespace App\Modules\Assessments\Models;
 
 use App\Models\BaseModel;
+use CodeIgniter\Database\BaseBuilder;
 
 class PatientAssessmentModel extends BaseModel
 {
@@ -36,4 +37,42 @@ class PatientAssessmentModel extends BaseModel
             'in_list' => 'O status informado e invalido.',
         ],
     ];
+
+    /**
+     * Retorna um builder novo para a tabela de avaliacoes, ja com os filtros
+     * de tenant e soft delete aplicados.
+     */
+    protected function newQuery(): BaseBuilder
+    {
+        $builder = $this->db->table($this->table);
+
+        $tenantId = $this->currentTenantId();
+        if ($tenantId !== null && $this->tableHasTenantColumn($this->table)) {
+            $builder->where($this->table . '.tenant_id', $tenantId);
+        }
+
+        if ($this->useSoftDeletes) {
+            $builder->where($this->table . '.deleted_at', null);
+        }
+
+        return $builder;
+    }
+
+    /**
+     * Lista as avaliacoes de um paciente (mais recentes primeiro), incluindo
+     * o nome do protocolo.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function forPatient(int $patientId): array
+    {
+        return $this->newQuery()
+            ->select($this->table . '.*, protocols.name AS protocol_name')
+            ->join('protocols', 'protocols.id = ' . $this->table . '.protocol_id', 'left')
+            ->where($this->table . '.patient_id', $patientId)
+            ->orderBy($this->table . '.created_at', 'DESC')
+            ->orderBy($this->table . '.id', 'DESC')
+            ->get()
+            ->getResultArray();
+    }
 }

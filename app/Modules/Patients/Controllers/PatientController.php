@@ -3,6 +3,7 @@
 namespace App\Modules\Patients\Controllers;
 
 use App\Controllers\BaseController;
+use App\Modules\Assessments\Models\PatientAssessmentModel;
 use App\Modules\Core\Models\HealthInsuranceModel;
 use App\Modules\Core\Models\UnitModel;
 use App\Modules\Evolutions\Models\SessionEvolutionModel;
@@ -29,6 +30,8 @@ class PatientController extends BaseController
 
     protected ProtocolModel $protocolModel;
 
+    protected PatientAssessmentModel $assessmentModel;
+
     protected SessionEvolutionModel $evolutionModel;
 
     protected PatientMilestoneModel $milestoneModel;
@@ -43,6 +46,7 @@ class PatientController extends BaseController
         $this->unitModel            = new UnitModel();
         $this->healthInsuranceModel = new HealthInsuranceModel();
         $this->protocolModel        = new ProtocolModel();
+        $this->assessmentModel      = new PatientAssessmentModel();
         $this->evolutionModel       = new SessionEvolutionModel();
         $this->milestoneModel       = new PatientMilestoneModel();
         $this->postModel            = new PatientPostModel();
@@ -155,6 +159,8 @@ class PatientController extends BaseController
             'evolutions'       => $this->evolutionModel->forPatient((int) $id),
             'posts'            => $this->postModel->forPatient((int) $id),
             'milestones'       => $this->milestoneModel->forPatient((int) $id),
+            'assessments'      => $this->assessmentModel->forPatient((int) $id),
+            'protocols'        => $this->protocolModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll(),
             'postTypes'        => PatientPostModel::POST_TYPES,
             'milestoneIcons'   => PatientMilestoneModel::MILESTONE_ICONS,
         ]);
