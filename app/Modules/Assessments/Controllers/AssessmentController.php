@@ -129,9 +129,11 @@ class AssessmentController extends BaseController
             ->findAll();
 
         $view = match ($protocol['view_slug'] ?? null) {
-            'vb-mapp' => 'App\Modules\Assessments\Views\protocols\vb_mapp',
-            'afls'    => 'App\Modules\Assessments\Views\protocols\afls',
-            default   => 'App\Modules\Assessments\Views\show',
+            'vb-mapp'     => 'App\Modules\Assessments\Views\protocols\vb_mapp',
+            'afls'        => 'App\Modules\Assessments\Views\protocols\afls',
+            'comunicacao' => 'App\Modules\Assessments\Views\protocols\comunicacao',
+            'academico'   => 'App\Modules\Assessments\Views\protocols\academico',
+            default       => 'App\Modules\Assessments\Views\show',
         };
 
         return view($view, [
@@ -197,9 +199,11 @@ class AssessmentController extends BaseController
             $radarImage       = (new RadarChartService())->render($sectionSummaries);
 
             $view = match ($protocol['view_slug'] ?? null) {
-                'vb-mapp' => 'App\Modules\Assessments\Views\pdf\pdf_vb_mapp',
-                'afls'    => 'App\Modules\Assessments\Views\pdf\pdf_afls',
-                default   => 'App\Modules\Assessments\Views\pdf_assessment',
+                'vb-mapp'     => 'App\Modules\Assessments\Views\pdf\pdf_vb_mapp',
+                'afls'        => 'App\Modules\Assessments\Views\pdf\pdf_afls',
+                'comunicacao' => 'App\Modules\Assessments\Views\pdf\pdf_comunicacao',
+                'academico'   => 'App\Modules\Assessments\Views\pdf\pdf_academico',
+                default       => 'App\Modules\Assessments\Views\pdf_assessment',
             };
 
             $html = view($view, [

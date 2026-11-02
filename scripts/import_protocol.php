@@ -5,12 +5,12 @@ ini_set('memory_limit', '1024M');
 /**
  * scripts/import_protocol.php
  *
- * Importa protocolos (VB-MAPP, AFLS) diretamente dos arquivos XLSX em
- * database/data/protocolos/ usando PhpSpreadsheet.
+ * Importa protocolos (VB-MAPP, AFLS, Comunicacao, Academico) diretamente dos
+ * arquivos XLSX em database/data/protocolos/ usando PhpSpreadsheet.
  *
  * Uso:
  *   php scripts/import_protocol.php [--dry-run] [--file=nome.xlsx]
- *       [--protocol=vb-mapp|afls] [--tenant=ID]
+ *       [--protocol=vb-mapp|afls|comunicacao|academico] [--tenant=ID]
  *
  * - Sem --file, processa todos os .xlsx da pasta database/data/protocolos/.
  * - O tipo de protocolo e detectado pelo nome do arquivo, salvo quando
@@ -19,7 +19,9 @@ ini_set('memory_limit', '1024M');
  *   avaliacoes existentes.
  */
 
+use App\Modules\Protocols\Services\AcademicoImporter;
 use App\Modules\Protocols\Services\AflsImporter;
+use App\Modules\Protocols\Services\ComunicacaoImporter;
 use App\Modules\Protocols\Services\ProtocolImportWriter;
 use App\Modules\Protocols\Services\VbMappImporter;
 
@@ -53,8 +55,10 @@ foreach ($files as $file) {
     }
 
     $importer = match ($type) {
-        'vb-mapp' => new VbMappImporter(),
-        'afls'    => new AflsImporter(),
+        'vb-mapp'    => new VbMappImporter(),
+        'afls'       => new AflsImporter(),
+        'comunicacao' => new ComunicacaoImporter(),
+        'academico'   => new AcademicoImporter(),
     };
 
     echo str_repeat('=', 72) . PHP_EOL;
@@ -191,6 +195,14 @@ function detectType(string $file, array $options): ?string
 
     if (str_contains($lower, 'afls')) {
         return 'afls';
+    }
+
+    if (str_contains($lower, 'comunica') || str_contains($lower, 'matriz')) {
+        return 'comunicacao';
+    }
+
+    if (str_contains($lower, 'academia') || str_contains($lower, 'academico') || str_contains($lower, 'acadêmico')) {
+        return 'academico';
     }
 
     return null;
