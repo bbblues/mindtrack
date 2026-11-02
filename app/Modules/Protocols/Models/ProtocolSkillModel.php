@@ -8,6 +8,7 @@ class ProtocolSkillModel extends BaseModel
 {
     protected $table         = 'protocol_skills';
     protected $primaryKey    = 'id';
+    protected $includeGlobalRows = true;
     protected $allowedFields = [
         'tenant_id',
         'level_id',

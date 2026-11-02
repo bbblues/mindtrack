@@ -8,6 +8,7 @@ class ProtocolStatusModel extends BaseModel
 {
     protected $table         = 'protocol_statuses';
     protected $primaryKey    = 'id';
+    protected $includeGlobalRows = true;
     protected $allowedFields = [
         'tenant_id',
         'protocol_id',

@@ -22,6 +22,13 @@ abstract class BaseModel extends Model
     protected $protectFields  = true;
 
     /**
+     * Quando true, o filtro de tenant passa a incluir tambem registros
+     * globais (tenant_id IS NULL) — usado para catalogos compartilhados
+     * (ex: protocolos complexos importados via Seeder).
+     */
+    protected $includeGlobalRows = false;
+
+    /**
      * Cache da verificacao da coluna tenant_id por tabela.
      *
      * @var array<string, bool>
@@ -69,7 +76,15 @@ abstract class BaseModel extends Model
             return $builder;
         }
 
-        $builder->where($tableName . '.tenant_id', $tenantId);
+        if ($this->includeGlobalRows) {
+            $builder
+                ->groupStart()
+                ->where($tableName . '.tenant_id', $tenantId)
+                ->orWhere($tableName . '.tenant_id', null)
+                ->groupEnd();
+        } else {
+            $builder->where($tableName . '.tenant_id', $tenantId);
+        }
 
         if ($tableName === $this->table) {
             $this->tenantScopeApplied[$tableName] = true;

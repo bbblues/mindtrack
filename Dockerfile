@@ -7,17 +7,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libicu-dev \
         libzip-dev \
         libonig-dev \
+        libpng-dev \
+        libjpeg-dev \
+        libfreetype6-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         intl \
         mbstring \
         mysqli \
         pdo_mysql \
         zip \
+        gd \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
 # Composer disponivel dentro do container (builds, installs e create-project)
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Configuracao PHP personalizada (limite de memoria para geracao de PDFs grandes)
+COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-mindtrack.ini
 
 # Apache servindo a pasta public/ do CodeIgniter 4
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public

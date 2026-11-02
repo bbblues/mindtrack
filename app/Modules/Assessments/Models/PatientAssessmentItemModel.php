@@ -14,13 +14,15 @@ class PatientAssessmentItemModel extends BaseModel
         'protocol_item_id',
         'status_id',
         'value_at_time',
+        'score_achieved',
     ];
 
     protected $validationRules = [
-        'assessment_id'   => 'required|integer',
+        'assessment_id'    => 'required|integer',
         'protocol_item_id' => 'required|integer',
-        'status_id'       => 'permit_empty|integer',
-        'value_at_time'   => 'permit_empty|integer',
+        'status_id'        => 'permit_empty|integer',
+        'value_at_time'    => 'permit_empty|integer',
+        'score_achieved'   => 'permit_empty|decimal',
     ];
 
     protected $validationMessages = [

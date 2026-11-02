@@ -8,16 +8,19 @@ class ProtocolModel extends BaseModel
 {
     protected $table         = 'protocols';
     protected $primaryKey    = 'id';
+    protected $includeGlobalRows = true;
     protected $allowedFields = [
         'tenant_id',
         'name',
         'description',
+        'view_slug',
         'is_active',
     ];
 
     protected $validationRules = [
         'name'        => 'required|max_length[255]',
         'description' => 'permit_empty',
+        'view_slug'   => 'permit_empty|max_length[255]',
         'is_active'   => 'permit_empty|in_list[0,1]',
     ];
 

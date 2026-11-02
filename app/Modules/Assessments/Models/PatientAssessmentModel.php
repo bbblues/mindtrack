@@ -19,7 +19,7 @@ class PatientAssessmentModel extends BaseModel
     protected $validationRules = [
         'patient_id'  => 'required|integer',
         'protocol_id' => 'required|integer',
-        'score'       => 'permit_empty|integer',
+        'score'       => 'permit_empty|decimal',
         'status'      => 'permit_empty|in_list[in_progress,completed]',
     ];
 

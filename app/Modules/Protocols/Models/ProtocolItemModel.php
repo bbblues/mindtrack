@@ -8,12 +8,15 @@ class ProtocolItemModel extends BaseModel
 {
     protected $table         = 'protocol_items';
     protected $primaryKey    = 'id';
+    protected $includeGlobalRows = true;
     protected $allowedFields = [
         'tenant_id',
         'skill_id',
         'name',
         'description',
         'sort_order',
+        'max_score',
+        'metadata',
     ];
 
     protected $validationRules = [
@@ -21,6 +24,8 @@ class ProtocolItemModel extends BaseModel
         'name'        => 'required|max_length[255]',
         'description' => 'permit_empty',
         'sort_order'  => 'permit_empty|integer',
+        'max_score'   => 'permit_empty|decimal',
+        'metadata'    => 'permit_empty|valid_json',
     ];
 
     protected $validationMessages = [
