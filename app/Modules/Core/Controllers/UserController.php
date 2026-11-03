@@ -157,6 +157,16 @@ class UserController extends BaseController
     {
         $isSuperAdmin = (int) session('is_super_admin') === 1;
 
+        $sessionTenantId = is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
+
+        // Unidades: o Super Admin ve todas (o front filtra pelo tenant escolhido);
+        // o Admin da clinica ve apenas as unidades do proprio tenant.
+        $units = $isSuperAdmin
+            ? $this->unitModel->orderBy('name', 'ASC')->findAll()
+            : ($sessionTenantId !== null
+                ? $this->unitModel->where('tenant_id', $sessionTenantId)->orderBy('name', 'ASC')->findAll()
+                : []);
+
         $selectedRoleIds = $user !== null
             ? $this->roleUserModel->roleIdsForUser((int) $user['id'])
             : array_map('intval', (array) (old('roles') ?? []));
@@ -165,7 +175,7 @@ class UserController extends BaseController
             'title'           => $user === null ? 'Novo Usuário' : 'Editar Usuário',
             'basePath'        => $this->basePath(),
             'user'            => $user,
-            'units'           => $this->unitModel->orderBy('name', 'ASC')->findAll(),
+            'units'           => $units,
             'roles'           => $this->roleModel->rolesForTenant($this->roleTenantIdForForm($user)),
             'tenants'         => $isSuperAdmin ? $this->tenantModel->orderBy('name', 'ASC')->findAll() : [],
             'selectedRoleIds' => $selectedRoleIds,

@@ -67,7 +67,7 @@ class TenantController extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->tenantModel->errors());
         }
 
-        return redirect()->to(site_url('tenants'))->with('success', 'Clínica criada com sucesso.');
+        return redirect()->to(site_url('tenants'))->with('success', 'Clínica criada com sucesso. A unidade padrão "Matriz" foi criada automaticamente.');
     }
 
     /**

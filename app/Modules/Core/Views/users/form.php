@@ -14,6 +14,20 @@ $agendaOrderValue = old('agenda_order', null);
 if ($agendaOrderValue === null || $agendaOrderValue === '') {
     $agendaOrderValue = ((int) ($u['agenda_order'] ?? 0) > 0) ? (string) (int) $u['agenda_order'] : '';
 }
+
+$units = $units ?? [];
+$unitsJson = json_encode(
+    array_map(static fn (array $unit): array => [
+        'id'        => (int) $unit['id'],
+        'name'      => (string) ($unit['name'] ?? ''),
+        'tenant_id' => array_key_exists('tenant_id', $unit) ? (int) $unit['tenant_id'] : null,
+    ], $units),
+    JSON_UNESCAPED_UNICODE
+);
+
+$initialSelectedTenant = $isSuperAdmin
+    ? $selectedTenantId
+    : (is_numeric(session('tenant_id')) ? (string) (int) session('tenant_id') : '');
 ?>
 
 <div class="mx-auto max-w-4xl">
@@ -36,7 +50,7 @@ if ($agendaOrderValue === null || $agendaOrderValue === '') {
         </div>
     <?php endif; ?>
 
-    <form action="<?= $formAction ?>" method="post" class="rounded-xl border border-gray-200 bg-white shadow-sm">
+    <form action="<?= $formAction ?>" method="post" x-data='userForm(<?= esc($unitsJson, 'attr') ?>, <?= esc(json_encode($initialSelectedTenant), 'attr') ?>, <?= esc(json_encode($selectedUnitId), 'attr') ?>)' class="rounded-xl border border-gray-200 bg-white shadow-sm">
         <?= csrf_field() ?>
 
         <div class="space-y-6 p-6">
@@ -61,11 +75,11 @@ if ($agendaOrderValue === null || $agendaOrderValue === '') {
 
                 <div>
                     <label for="unit_id" class="mb-1 block text-sm font-medium text-gray-700">Unidade</label>
-                    <select id="unit_id" name="unit_id" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                    <select id="unit_id" name="unit_id" x-model="selectedUnitId" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
                         <option value="">Selecione...</option>
-                        <?php foreach ($units as $unit): ?>
-                            <option value="<?= (int) $unit['id'] ?>" <?= $selectedUnitId === (string) (int) $unit['id'] ? 'selected' : '' ?>><?= esc($unit['name']) ?></option>
-                        <?php endforeach; ?>
+                        <template x-for="unit in filteredUnits" :key="unit.id">
+                            <option :value="unit.id" x-text="unit.name"></option>
+                        </template>
                     </select>
                 </div>
 
@@ -78,10 +92,10 @@ if ($agendaOrderValue === null || $agendaOrderValue === '') {
                 <?php if ($isSuperAdmin): ?>
                     <div>
                         <label for="tenant_id" class="mb-1 block text-sm font-medium text-gray-700">Clínica (tenant)</label>
-                        <select id="tenant_id" name="tenant_id" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                        <select id="tenant_id" name="tenant_id" x-model="selectedTenant" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
                             <option value="">Global (sem clínica)</option>
                             <?php foreach ($tenants as $tenant): ?>
-                                <option value="<?= (int) $tenant['id'] ?>" <?= $selectedTenantId === (string) (int) $tenant['id'] ? 'selected' : '' ?>><?= esc($tenant['name']) ?></option>
+                                <option value="<?= (int) $tenant['id'] ?>"><?= esc($tenant['name']) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -137,4 +151,24 @@ if ($agendaOrderValue === null || $agendaOrderValue === '') {
         </div>
     </form>
 </div>
+
+<script>
+function userForm(initialUnits, initialSelectedTenant, initialSelectedUnitId) {
+    return {
+        allUnits: initialUnits,
+        selectedTenant: initialSelectedTenant,
+        selectedUnitId: initialSelectedUnitId,
+
+        get filteredUnits() {
+            if (this.selectedTenant === '' || this.selectedTenant === null) {
+                return [];
+            }
+
+            return this.allUnits.filter(
+                (unit) => String(unit.tenant_id) === String(this.selectedTenant)
+            );
+        },
+    };
+}
+</script>
 <?= $this->endSection() ?>

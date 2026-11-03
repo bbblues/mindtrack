@@ -49,6 +49,9 @@ class TenantModel extends BaseModel
         // Cria os 4 cargos padrao (RBAC) vinculados ao novo tenant.
         (new RoleModel())->createDefaultRolesForTenant((int) $tenantId);
 
+        // Cria a unidade padrao "Matriz" vinculada ao novo tenant.
+        (new UnitModel())->createDefaultUnitForTenant((int) $tenantId);
+
         return (int) $tenantId;
     }
 
