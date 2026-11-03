@@ -103,7 +103,10 @@ class TenantController extends BaseController
         $data       = $this->tenantDataFromRequest();
         $data['id'] = (int) $id; // o is_unique usa {id} para ignorar o proprio registro
 
-        if (! $this->validateData($data, $this->tenantModel->getValidationRules(), $this->tenantModel->getValidationMessages())) {
+        $rules       = $this->tenantModel->getValidationRules();
+        $rules['id'] = 'required|is_natural_no_zero';
+
+        if (! $this->validateData($data, $rules, $this->tenantModel->getValidationMessages())) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
