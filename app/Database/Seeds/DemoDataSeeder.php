@@ -24,12 +24,54 @@ class DemoDataSeeder extends Seeder
     private const DEMO_SLUG   = 'clinica-teste';
     private const ADMIN_EMAIL = 'admin@clinica-teste.com';
 
+    /**
+     * Tabelas de dominio que possuem a coluna tenant_id e devem ser
+     * limpas ao resetar o tenant de demonstracao.
+     *
+     * @var list<string>
+     */
+    private const TENANT_TABLES = [
+        'users',
+        'roles',
+        'module_tenant',
+        'settings',
+        'units',
+        'health_insurances',
+        'specialties',
+        'rooms',
+        'tags',
+        'absence_reasons',
+        'discharge_reasons',
+        'note_templates',
+        'patients',
+        'guardians',
+        'patient_guardians',
+        'appointments',
+        'professional_schedules',
+        'protocols',
+        'protocol_levels',
+        'protocol_skills',
+        'protocol_items',
+        'protocol_statuses',
+        'patient_assessments',
+        'patient_assessment_items',
+        'therapeutic_plans',
+        'plan_items',
+        'session_evolutions',
+        'patient_posts',
+        'patient_milestones',
+    ];
+
     public function run()
     {
         if (ENVIRONMENT === 'production' && !in_array('--force', $_SERVER['argv'] ?? [])) {
             echo "Bloqueado.\n";
 
             return;
+        }
+
+        if (in_array('--reset', $_SERVER['argv'] ?? [])) {
+            $this->resetDemoTenant();
         }
 
         $tenantId = $this->demoTenantId();
@@ -57,6 +99,46 @@ class DemoDataSeeder extends Seeder
 
         echo 'Login admin: ' . self::ADMIN_EMAIL . ' / password' . PHP_EOL;
         echo 'Login profissional: prof1@mindtrack.com / password' . PHP_EOL;
+    }
+
+    private function resetDemoTenant(): void
+    {
+        $tenantId = $this->demoTenantId();
+
+        if ($tenantId === null) {
+            return;
+        }
+
+        // role_user nao possui tenant_id; remove antes de apagar os usuarios
+        // para nao deixar vinculos orfaos quando as FKs estiverem desligadas.
+        $userIds = array_column(
+            $this->db->table('users')
+                ->select('id')
+                ->where('tenant_id', $tenantId)
+                ->get()
+                ->getResultArray(),
+            'id'
+        );
+
+        if ($userIds !== []) {
+            $this->db->table('role_user')->whereIn('user_id', $userIds)->delete();
+        }
+
+        // Desliga a checagem de FKs para contornar as restricoes RESTRICT
+        // (ex: session_evolutions.appointment_id -> appointments).
+        $this->db->query('SET FOREIGN_KEY_CHECKS=0');
+
+        try {
+            foreach (self::TENANT_TABLES as $table) {
+                $this->db->table($table)->where('tenant_id', $tenantId)->delete();
+            }
+
+            $this->db->table('tenants')->where('id', $tenantId)->delete();
+        } finally {
+            $this->db->query('SET FOREIGN_KEY_CHECKS=1');
+        }
+
+        echo 'Tenant de demonstração removido.' . PHP_EOL;
     }
 
     private function demoTenantId(): ?int

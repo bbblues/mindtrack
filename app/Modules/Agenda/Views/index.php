@@ -17,6 +17,20 @@
 .agenda-event-card .calendar_default_event_bar,
 .agenda-event-card .scheduler_default_event_bar_background,
 .agenda-event-card .calendar_default_event_bar_background{display:none!important}
+
+/* Desativa a cor cinza nativa de horários fechados (non-business hours).
+   O tema padrão aplica o cinza na célula base; as classes *_cell_business
+   marcam o horário comercial. Sobrescreve tudo com !important. */
+.dp-non-business,
+.scheduler_default_cell_business,
+.calendar_default_cell_business,
+.scheduler_default_cell,
+.calendar_default_cell{background-color:inherit!important}
+
+/* Força as cores da zebra (classes aplicadas via onBeforeCellRender) */
+.zebra-even{background-color:#ffffff!important}
+.zebra-odd{background-color:#f8f9fa!important}
+
 </style>
 <!-- This software includes DayPilot (https://www.daypilot.org). License: Apache License 2.0 -->
 <script src="https://unpkg.com/@daypilot/daypilot-lite-javascript@6.2.0/daypilot-javascript.min.js"></script>
@@ -32,38 +46,49 @@
         </button>
     </div>
 
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
-            <button type="button" :class="dayButtonClass" @click="setView('day')">Dia</button>
-            <button type="button" :class="weekButtonClass" @click="setView('week')">Semana</button>
-        </div>
-
-        <div x-show="view === 'day'" class="flex flex-wrap items-center gap-2">
-            <button type="button" @click="prevDay()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50" aria-label="Dia anterior">‹</button>
-            <div class="flex items-center gap-1">
-                <template x-for="d in dayDates" :key="d.key">
-                    <button type="button" @click="goToDate(d.date)" :class="d.active ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 hover:bg-gray-50'" class="rounded-lg border border-gray-300 px-2.5 py-1.5 text-center leading-tight transition">
-                        <span class="block text-[10px] uppercase tracking-wide opacity-70" x-text="d.weekday"></span>
-                        <span class="block text-xs font-semibold" x-text="d.dayMonth"></span>
-                    </button>
-                </template>
+    <div x-ref="fullscreenContainer" class="space-y-6" :class="isFullscreen ? 'overflow-auto bg-gray-100 p-4' : ''">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
+                <button type="button" :class="dayButtonClass" @click="setView('day')">Dia</button>
+                <button type="button" :class="weekButtonClass" @click="setView('week')">Semana</button>
             </div>
-            <button type="button" @click="nextDay()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50" aria-label="Próximo dia">›</button>
-            <span class="ml-2 text-sm font-medium text-gray-700" x-text="periodLabel"></span>
+
+            <div x-show="view === 'day'" class="flex flex-wrap items-center gap-2">
+                <button type="button" @click="prevDay()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50" aria-label="Dia anterior">‹</button>
+                <div class="flex items-center gap-1">
+                    <template x-for="d in dayDates" :key="d.key">
+                        <button type="button" @click="goToDate(d.date)" :class="d.active ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 hover:bg-gray-50'" class="rounded-lg border border-gray-300 px-2.5 py-1.5 text-center leading-tight transition">
+                            <span class="block text-[10px] uppercase tracking-wide opacity-70" x-text="d.weekday"></span>
+                            <span class="block text-xs font-semibold" x-text="d.dayMonth"></span>
+                        </button>
+                    </template>
+                </div>
+                <button type="button" @click="nextDay()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50" aria-label="Próximo dia">›</button>
+                <span class="ml-2 text-sm font-medium text-gray-700" x-text="periodLabel"></span>
+            </div>
+
+            <div x-show="view === 'week'" class="flex flex-wrap items-center gap-2">
+                <button type="button" @click="prevWeek()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50">‹ Semana Anterior</button>
+                <button type="button" @click="currentWeek()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">Semana Atual</button>
+                <button type="button" @click="nextWeek()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50">Próxima Semana ›</button>
+                <span class="ml-2 text-sm font-medium text-gray-700" x-text="periodLabel"></span>
+            </div>
+
+            <button type="button" @click="toggleFullscreen()" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50" :aria-label="isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'" :title="isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'">
+                <svg x-show="!isFullscreen" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+                <svg x-show="isFullscreen" x-cloak xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5M15 15l5.25 5.25" />
+                </svg>
+            </button>
         </div>
 
-        <div x-show="view === 'week'" class="flex flex-wrap items-center gap-2">
-            <button type="button" @click="prevWeek()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50">‹ Semana Anterior</button>
-            <button type="button" @click="currentWeek()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">Semana Atual</button>
-            <button type="button" @click="nextWeek()" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm transition hover:bg-gray-50">Próxima Semana ›</button>
-            <span class="ml-2 text-sm font-medium text-gray-700" x-text="periodLabel"></span>
-        </div>
-    </div>
-
-    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div class="p-4">
-            <div id="dayView" class="agenda-view"></div>
-            <div id="weekView" class="agenda-view hidden"></div>
+        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div class="p-4">
+                <div id="dayView" class="agenda-view"></div>
+                <div id="weekView" class="agenda-view hidden"></div>
+            </div>
         </div>
     </div>
 
@@ -370,6 +395,7 @@ function agendaApp() {
         },
         toast: { open: false, message: '', type: 'success' },
         toastTimer: null,
+        isFullscreen: false,
         view: 'day',
         dateStr: <?= json_encode($date) ?>,
         evolutionCreateUrl: <?= json_encode(site_url('evolutions/create')) ?>,
@@ -399,6 +425,9 @@ function agendaApp() {
                     this.fitWeekScheduler();
                 }
             });
+
+            document.addEventListener('fullscreenchange', () => this.onFullscreenChange());
+            document.addEventListener('webkitfullscreenchange', () => this.onFullscreenChange());
 
             if (typeof DayPilot === 'undefined') {
                 return;
@@ -540,6 +569,8 @@ function agendaApp() {
                 locale: 'pt-br',
                 heightSpec: 'Full',
                 startDate: this.dateStr,
+                businessBeginsHour: 0,
+                businessEndsHour: 24,
                 cellDuration: 30,
                 columns: buildColumns(),
                 eventMoveHandling: 'Update',
@@ -548,6 +579,7 @@ function agendaApp() {
                 onEventClick: (args) => this.handleEventClick(args.e),
                 onEventMove: (args) => this.handleEventMove(args),
                 onEventMoved: (args) => this.handleEventMoved(args),
+                onBeforeCellRender: (args) => this.applyZebra(args),
                 onBeforeEventRender: (args) => this.applyEventStyle(args),
             });
             dayCalendar.init();
@@ -558,6 +590,9 @@ function agendaApp() {
                 scale: 'Day',
                 days: 7,
                 weekStarts: 0,
+                businessBeginsHour: 0,
+                businessEndsHour: 24,
+                businessWeekends: true,
                 heightSpec: 'Auto',
                 width: '100%',
                 startDate: weekStartIso(this.dateStr),
@@ -576,6 +611,7 @@ function agendaApp() {
                 onEventClick: (args) => this.handleEventClick(args.e),
                 onEventMove: (args) => this.handleEventMove(args),
                 onEventMoved: (args) => this.handleEventMoved(args),
+                onBeforeCellRender: (args) => this.applyZebra(args),
                 onBeforeEventRender: (args) => this.applyEventStyle(args),
             });
             weekScheduler.init();
@@ -597,6 +633,25 @@ function agendaApp() {
             const cellWidth = Math.max(80, Math.floor(available / 7) - 2);
 
             weekScheduler.update({ cellWidth });
+        },
+        applyZebra(args) {
+            // Garante que todas as células sejam tratadas como "horário comercial"
+            // (24/7), eliminando o cinza nativo de madrugada e fim de semana.
+            args.cell.properties.business = true;
+
+            const resourceId = args.cell.resource;
+            const index = professionals.findIndex((p) => String(p.id) === String(resourceId));
+
+            if (index < 0) {
+                return;
+            }
+
+            const isEven = (index % 2 === 0);
+
+            // O DayPilot Lite (6.x) expõe as propriedades de renderização em
+            // `args.cell.properties` (e não em `args.cell` diretamente).
+            args.cell.properties.cssClass = isEven ? 'zebra-even' : 'zebra-odd';
+            args.cell.properties.backColor = isEven ? '#ffffff' : '#f8f9fa';
         },
         applyEventStyle(args) {
             const name = DayPilot.Util.escapeHtml(args.data.text || 'Paciente');
@@ -630,6 +685,37 @@ function agendaApp() {
         openModal() {
             this.form.end_time = this.addMinutes(this.form.start_time, this.defaultDuration);
             this.open = true;
+        },
+        toggleFullscreen() {
+            const el = this.$refs.fullscreenContainer;
+            const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+            if (!isFullscreen) {
+                const request = el.requestFullscreen || el.webkitRequestFullscreen;
+
+                if (request) {
+                    const result = request.call(el);
+
+                    if (result && typeof result.catch === 'function') {
+                        result.catch(() => {});
+                    }
+                }
+
+                return;
+            }
+
+            const exit = document.exitFullscreen || document.webkitExitFullscreen;
+
+            if (exit) {
+                const result = exit.call(document);
+
+                if (result && typeof result.catch === 'function') {
+                    result.catch(() => {});
+                }
+            }
+        },
+        onFullscreenChange() {
+            this.isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
         },
         onStartChange() {
             if (! this.form.end_time) {
