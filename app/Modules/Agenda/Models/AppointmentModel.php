@@ -107,13 +107,17 @@ class AppointmentModel extends BaseModel
      *
      * @return array<int, array<string, mixed>>
      */
-    public function forRange(?string $start = null, ?string $end = null): array
+    public function forRange(?string $start = null, ?string $end = null, ?int $patientId = null): array
     {
         $builder = $this->newQuery()
             ->select($this->table . '.*, patients.name AS patient_name, patients.color AS patient_color, users.name AS professional_name')
             ->join('patients', 'patients.id = ' . $this->table . '.patient_id', 'left')
             ->join('users', 'users.id = ' . $this->table . '.professional_id', 'left')
             ->orderBy($this->table . '.start_time', 'ASC');
+
+        if ($patientId !== null) {
+            $builder->where($this->table . '.patient_id', $patientId);
+        }
 
         if ($start !== null && $end !== null) {
             $builder
@@ -122,6 +126,47 @@ class AppointmentModel extends BaseModel
         }
 
         return $builder->get()->getResultArray();
+    }
+
+    /**
+     * Retorna o proximo agendamento (id) de cada paciente informado.
+     *
+     * Considera agendamentos a partir de hoje com status 'agendado' ou
+     * 'confirmado'. O mais proximo no tempo vence para cada paciente.
+     *
+     * @param list<int> $patientIds
+     *
+     * @return array<int, int> mapa patient_id => appointment_id
+     */
+    public function nextAppointmentIdForPatients(array $patientIds): array
+    {
+        $patientIds = array_values(array_filter(array_map('intval', $patientIds), static fn (int $id): bool => $id > 0));
+
+        if ($patientIds === []) {
+            return [];
+        }
+
+        $rows = $this->newQuery()
+            ->select($this->table . '.id, ' . $this->table . '.patient_id')
+            ->whereIn($this->table . '.patient_id', $patientIds)
+            ->where($this->table . '.start_time >=', date('Y-m-d 00:00:00'))
+            ->whereIn($this->table . '.status', ['agendado', 'confirmado'])
+            ->orderBy($this->table . '.start_time', 'ASC')
+            ->orderBy($this->table . '.id', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        $map = [];
+
+        foreach ($rows as $row) {
+            $patientId = (int) $row['patient_id'];
+
+            if (! array_key_exists($patientId, $map)) {
+                $map[$patientId] = (int) $row['id'];
+            }
+        }
+
+        return $map;
     }
 
     /**

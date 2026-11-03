@@ -3,6 +3,7 @@
 namespace App\Modules\Patients\Controllers;
 
 use App\Controllers\BaseController;
+use App\Modules\Agenda\Models\AppointmentModel;
 use App\Modules\Assessments\Models\PatientAssessmentModel;
 use App\Modules\Core\Models\HealthInsuranceModel;
 use App\Modules\Core\Models\UnitModel;
@@ -19,6 +20,8 @@ use CodeIgniter\HTTP\ResponseInterface;
 class PatientController extends BaseController
 {
     protected PatientModel $patientModel;
+
+    protected AppointmentModel $appointmentModel;
 
     protected GuardianModel $guardianModel;
 
@@ -41,6 +44,7 @@ class PatientController extends BaseController
     public function __construct()
     {
         $this->patientModel         = new PatientModel();
+        $this->appointmentModel     = new AppointmentModel();
         $this->guardianModel        = new GuardianModel();
         $this->patientGuardianModel = new PatientGuardianModel();
         $this->unitModel            = new UnitModel();
@@ -69,6 +73,56 @@ class PatientController extends BaseController
             'pager'        => $this->patientModel->pager,
             'search'       => $search,
             'showInactive' => $showInactive,
+        ]);
+    }
+
+    /**
+     * Busca rapida de pacientes (JSON) para o Command Palette do layout.
+     *
+     * Retorna os top resultados com as URLs de acao ja montadas.
+     */
+    public function search(): ResponseInterface
+    {
+        $q = trim((string) $this->request->getGet('q'));
+
+        if (strlen($q) < 2) {
+            return $this->response
+                ->setStatusCode(422)
+                ->setJSON(['success' => false, 'message' => 'Informe ao menos 2 caracteres para buscar.']);
+        }
+
+        $patients = $this->patientModel->quickSearch($q, 8);
+
+        $patientIds       = array_map(static fn (array $p): int => (int) $p['id'], $patients);
+        $nextAppointments = $patientIds === [] ? [] : $this->appointmentModel->nextAppointmentIdForPatients($patientIds);
+
+        $results = [];
+
+        foreach ($patients as $patient) {
+            $patientId         = (int) $patient['id'];
+            $nextAppointmentId = $nextAppointments[$patientId] ?? null;
+
+            $results[] = [
+                'id'                  => $patientId,
+                'name'                => (string) ($patient['name'] ?? ''),
+                'cpf'                 => (string) ($patient['cpf'] ?? ''),
+                'birth_date'          => (string) ($patient['birth_date'] ?? ''),
+                'color'               => (string) ($patient['color'] ?? '#3b82f6'),
+                'is_active'           => (int) ($patient['is_active'] ?? 1),
+                'unit_name'           => (string) ($patient['unit_name'] ?? ''),
+                'next_appointment_id' => $nextAppointmentId,
+                'profile_url'         => site_url('patients/edit/' . $patientId),
+                'assessment_url'      => site_url('patients/edit/' . $patientId . '?tab=avaliacoes'),
+                'agenda_url'          => site_url('agenda?patient_id=' . $patientId),
+                'evolution_url'       => $nextAppointmentId !== null
+                    ? site_url('evolutions/create/' . $nextAppointmentId)
+                    : null,
+            ];
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'results' => $results,
         ]);
     }
 

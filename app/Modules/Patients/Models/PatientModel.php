@@ -119,6 +119,38 @@ class PatientModel extends BaseModel
     }
 
     /**
+     * Busca rapida (type-ahead) de pacientes do tenant por nome ou CPF.
+     *
+     * Usada pela Busca Rapida global (Command Palette) do layout.
+     * Segue o mesmo comportamento da listagem: com termo ativo, busca
+     * tambem pacientes inativos.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function quickSearch(string $query, int $limit = 8): array
+    {
+        $query = trim($query);
+
+        if ($query === '') {
+            return [];
+        }
+
+        $normalizedCpf = preg_replace('/\D/', '', $query) ?: $query;
+
+        return $this
+            ->select('patients.id, patients.name, patients.cpf, patients.birth_date, patients.color, patients.is_active, units.name AS unit_name')
+            ->join('units', 'units.id = patients.unit_id', 'left')
+            ->groupStart()
+            ->like('patients.name', $query)
+            ->orLike('patients.cpf', $normalizedCpf)
+            ->groupEnd()
+            ->orderBy('patients.name', 'ASC')
+            ->limit($limit)
+            ->get()
+            ->getResultArray();
+    }
+
+    /**
      * Atribui uma cor da paleta ao novo paciente do tenant.
      *
      * Prioriza cores ainda nao usadas por pacientes ATIVOS do tenant.

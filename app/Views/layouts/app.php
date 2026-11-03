@@ -6,6 +6,7 @@
     <title><?= esc($title ?? 'MindTrack') ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>[x-cloak]{display:none!important}</style>
 </head>
 <body class="bg-gray-100 text-gray-800">
     <div class="min-h-screen">
@@ -106,6 +107,7 @@
                 <h1 class="text-lg font-semibold text-gray-800"><?= esc($title ?? 'MindTrack') ?></h1>
 
                 <div class="flex items-center gap-4">
+                    <?= view('App\Views\partials\quick_search') ?>
                     <a href="<?= site_url('profile') ?>" class="text-sm font-medium text-gray-700 transition hover:text-blue-600">
                         <?= esc(session('user_name') ?? 'Usuario') ?>
                     </a>

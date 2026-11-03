@@ -11,6 +11,7 @@ use CodeIgniter\Router\RouteCollection;
  */
 $routes->group('patients', ['filter' => 'auth'], static function ($routes) {
     $routes->get('/', [PatientController::class, 'index'], ['as' => 'patients.index']);
+    $routes->get('search', [PatientController::class, 'search'], ['as' => 'patients.search']);
     $routes->get('create', [PatientController::class, 'create'], ['as' => 'patients.create']);
     $routes->post('/', [PatientController::class, 'store'], ['as' => 'patients.store']);
     $routes->get('edit/(:num)', [PatientController::class, 'edit'], ['as' => 'patients.edit']);

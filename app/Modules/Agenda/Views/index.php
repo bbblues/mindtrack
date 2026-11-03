@@ -46,6 +46,16 @@
         </button>
     </div>
 
+    <div x-show="filterPatientId" x-cloak class="flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <div class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <span>Filtrando paciente: <strong x-text="filterPatientName"></strong></span>
+        </div>
+        <a href="<?= site_url('agenda') ?>" class="ml-auto inline-flex items-center gap-1 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-50">Limpar filtro</a>
+    </div>
+
     <div x-ref="fullscreenContainer" class="space-y-6" :class="isFullscreen ? 'overflow-auto bg-gray-100 p-4' : ''">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
@@ -401,8 +411,10 @@ function agendaApp() {
         evolutionCreateUrl: <?= json_encode(site_url('evolutions/create')) ?>,
         token: <?= json_encode(csrf_hash()) ?>,
         defaultDuration: <?= (int) $defaultDuration ?>,
+        filterPatientId: <?= $filterPatientId !== null ? (int) $filterPatientId : 'null' ?>,
+        filterPatientName: <?= json_encode($filterPatientName) ?>,
         form: {
-            patient_id: '',
+            patient_id: <?= $filterPatientId !== null ? (int) $filterPatientId : "''" ?>,
             professional_id: '',
             unit_id: '',
             room_id: '',
@@ -549,6 +561,9 @@ function agendaApp() {
         },
         async fetchEvents(start, end) {
             const params = new URLSearchParams({ start, end });
+            if (this.filterPatientId) {
+                params.set('patient_id', this.filterPatientId);
+            }
             const url = <?= json_encode(site_url('agenda/events')) ?> + '?' + params.toString();
             const response = await fetch(url);
 

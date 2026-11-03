@@ -253,7 +253,7 @@ $protocols      = $protocols ?? [];
     </form>
 
     <?php if ($isEdit): ?>
-    <div x-data="patientFeed()" x-cloak class="mt-6 rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div x-data="patientFeed()" x-cloak id="patient-feed" class="mt-6 rounded-xl border border-gray-200 bg-white shadow-sm">
         <div class="flex border-b border-gray-200">
             <button type="button" @click="tab = 'mural'" :class="tab === 'mural' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="border-b-2 px-4 py-3 text-sm font-medium">Mural</button>
             <button type="button" @click="tab = 'jornada'" :class="tab === 'jornada' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="border-b-2 px-4 py-3 text-sm font-medium">Jornada</button>
@@ -365,10 +365,24 @@ document.addEventListener('DOMContentLoaded', () => {
 <?php if ($isEdit): ?>
 <script>
 function patientFeed() {
+    const initialTab = ['mural', 'jornada', 'avaliacoes'].includes(new URLSearchParams(window.location.search).get('tab'))
+        ? new URLSearchParams(window.location.search).get('tab')
+        : 'mural';
+
     return {
-        tab: 'mural',
+        tab: initialTab,
         token: <?= json_encode(csrf_hash()) ?>,
         patientId: <?= (int) ($p['id'] ?? 0) ?>,
+        init() {
+            if (this.tab === 'avaliacoes') {
+                setTimeout(() => {
+                    const el = document.getElementById('patient-feed');
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 100);
+            }
+        },
         storePostUrl: <?= json_encode(site_url('patients/' . (int) ($p['id'] ?? 0) . '/posts')) ?>,
         storeMilestoneUrl: <?= json_encode(site_url('patients/' . (int) ($p['id'] ?? 0) . '/milestones')) ?>,
 

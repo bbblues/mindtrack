@@ -46,10 +46,14 @@ class AppointmentController extends BaseController
             $date = date('Y-m-d');
         }
 
+        [$filterPatientId, $filterPatientName] = $this->resolvePatientFilter();
+
         return view('App\Modules\Agenda\Views\index', [
-            'title'           => 'Agenda',
-            'date'            => $date,
-            'professionals'   => $this->userModel
+            'title'             => 'Agenda',
+            'date'              => $date,
+            'filterPatientId'   => $filterPatientId,
+            'filterPatientName' => $filterPatientName,
+            'professionals'     => $this->userModel
                 ->select('users.*, (users.agenda_order = 0) AS agenda_unordered')
                 ->distinct()
                 ->join('role_user', 'role_user.user_id = users.id')
@@ -179,7 +183,9 @@ class AppointmentController extends BaseController
         $start = $this->normalizeDateTime($this->request->getGet('start'));
         $end   = $this->normalizeDateTime($this->request->getGet('end'));
 
-        $appointments = $this->appointmentModel->forRange($start, $end);
+        $patientId = (int) $this->request->getGet('patient_id');
+
+        $appointments = $this->appointmentModel->forRange($start, $end, $patientId > 0 ? $patientId : null);
 
         $events = [];
 
@@ -188,6 +194,28 @@ class AppointmentController extends BaseController
         }
 
         return $this->response->setJSON($events);
+    }
+
+    /**
+     * Resolve o filtro opcional por paciente (?patient_id=) da agenda.
+     *
+     * @return array{0: ?int, 1: ?string} [id, nome]
+     */
+    private function resolvePatientFilter(): array
+    {
+        $patientId = (int) $this->request->getGet('patient_id');
+
+        if ($patientId <= 0) {
+            return [null, null];
+        }
+
+        $patient = $this->patientModel->find($patientId);
+
+        if ($patient === null) {
+            return [null, null];
+        }
+
+        return [$patientId, (string) ($patient['name'] ?? '')];
     }
 
     /**
