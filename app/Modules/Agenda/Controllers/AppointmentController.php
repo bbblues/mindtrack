@@ -4,6 +4,7 @@ namespace App\Modules\Agenda\Controllers;
 
 use App\Controllers\BaseController;
 use App\Modules\Agenda\Models\AppointmentModel;
+use App\Modules\Agenda\Services\AvailabilityService;
 use App\Modules\Core\Models\RoomModel;
 use App\Modules\Core\Models\SettingModel;
 use App\Modules\Core\Models\UnitModel;
@@ -27,14 +28,17 @@ class AppointmentController extends BaseController
 
     protected SettingModel $settingModel;
 
+    protected AvailabilityService $availabilityService;
+
     public function __construct()
     {
-        $this->appointmentModel = new AppointmentModel();
-        $this->userModel        = new UserModel();
-        $this->patientModel     = new PatientModel();
-        $this->unitModel        = new UnitModel();
-        $this->roomModel        = new RoomModel();
-        $this->settingModel     = new SettingModel();
+        $this->appointmentModel    = new AppointmentModel();
+        $this->userModel           = new UserModel();
+        $this->patientModel        = new PatientModel();
+        $this->unitModel           = new UnitModel();
+        $this->roomModel           = new RoomModel();
+        $this->settingModel        = new SettingModel();
+        $this->availabilityService = new AvailabilityService();
     }
 
     /**
@@ -171,6 +175,38 @@ class AppointmentController extends BaseController
 
         $forceOverride = filter_var($payload['force_override'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
+        $ignoreImpediments = $isRecurring
+            ? filter_var($payload['ignore_impediments'] ?? true, FILTER_VALIDATE_BOOLEAN)
+            : false;
+
+        if ($isRecurring && $ignoreImpediments) {
+            $occurrences = array_values(array_filter(
+                $occurrences,
+                fn (array $occurrence): bool => $this->availabilityService->impediments(
+                    $professionalId,
+                    $occurrence['start_time'],
+                    $occurrence['end_time'],
+                    $tenantId
+                ) === []
+            ));
+
+            if ($occurrences === []) {
+                return $this->jsonError(422, 'Nenhuma data disponível no período informado: todas as ocorrências estão fora da agenda do profissional ou em feriados.');
+            }
+        } else {
+            $impediments = $this->collectImpediments($professionalId, $occurrences, $tenantId);
+
+            if (! $forceOverride && $impediments !== []) {
+                return $this->response->setStatusCode(409)->setJSON([
+                    'success'    => false,
+                    'impediment' => true,
+                    'message'    => 'O agendamento está fora da disponibilidade do profissional.',
+                    'reasons'    => $impediments,
+                    'csrf_hash'  => csrf_hash(),
+                ]);
+            }
+        }
+
         if (! $forceOverride) {
             $conflicts = $this->collectConflicts($professionalId, $occurrences);
 
@@ -235,6 +271,37 @@ class AppointmentController extends BaseController
         }
 
         return $this->response->setJSON($events);
+    }
+
+    /**
+     * Retorna feriados e intervalos de disponibilidade usados pela agenda
+     * para destacar visualmente os períodos indisponíveis de cada profissional.
+     */
+    public function availability(): ResponseInterface
+    {
+        $scope = $this->agendaViewScope();
+
+        if ($scope === 'none') {
+            return $this->response->setJSON(['holidays' => [], 'schedules' => [], 'clinicHours' => []]);
+        }
+
+        $start = $this->normalizeDateTime($this->request->getGet('start'));
+        $end   = $this->normalizeDateTime($this->request->getGet('end'));
+
+        if ($start === null || $end === null) {
+            $start = date('Y-m-d 00:00:00');
+            $end   = date('Y-m-d 00:00:00', strtotime('+11 days'));
+        }
+
+        if ($scope === 'own') {
+            $professionalIds = [(int) session('user_id')];
+        } else {
+            $professionalIds = array_map('intval', array_column($this->userModel->professionals(), 'id'));
+        }
+
+        return $this->response->setJSON(
+            $this->availabilityService->availabilityMap($professionalIds, $start, $end, $this->currentTenantId())
+        );
     }
 
     /**
@@ -343,8 +410,24 @@ class AppointmentController extends BaseController
         }
 
         $forceOverride = filter_var($payload['force_override'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $tenantId      = is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
 
         if (! $forceOverride) {
+            $impediments = $this->availabilityService->impediments($professionalId, $startTime, $endTime, $tenantId);
+
+            if ($impediments !== []) {
+                return $this->response->setStatusCode(409)->setJSON([
+                    'success'    => false,
+                    'impediment' => true,
+                    'message'    => 'O horário está fora da disponibilidade do profissional.',
+                    'reasons'    => array_map(static fn (string $reason): array => [
+                        'start_time' => $startTime,
+                        'reason'     => $reason,
+                    ], $impediments),
+                    'csrf_hash'  => csrf_hash(),
+                ]);
+            }
+
             $conflicts = $this->appointmentModel->findConflicts($professionalId, $startTime, $endTime, $id);
 
             if ($conflicts !== []) {
@@ -538,6 +621,36 @@ class AppointmentController extends BaseController
         }
 
         return $occurrences !== [] ? $occurrences : [$data];
+    }
+
+    /**
+     * Junta (sem duplicar) os impedimentos (fora da agenda / feriado) de
+     * todas as ocorrencias.
+     *
+     * @param list<array<string, mixed>> $occurrences
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function collectImpediments(int $professionalId, array $occurrences, ?int $tenantId): array
+    {
+        $unique = [];
+
+        foreach ($occurrences as $occurrence) {
+            foreach ($this->availabilityService->impediments(
+                $professionalId,
+                $occurrence['start_time'],
+                $occurrence['end_time'],
+                $tenantId
+            ) as $reason) {
+                $key = $occurrence['start_time'] . '|' . $reason;
+                $unique[$key] = [
+                    'start_time' => $occurrence['start_time'],
+                    'reason'     => $reason,
+                ];
+            }
+        }
+
+        return array_values($unique);
     }
 
     /**

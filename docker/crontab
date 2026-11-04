@@ -1,0 +1,2 @@
+# Sincroniza feriados nacionais (BrasilAPI) no 1º dia de cada mês às 03:00.
+0 3 1 * * root cd /var/www/html && /usr/local/bin/php spark holidays:sync-national >> /var/log/mindtrack-holidays.log 2>&1

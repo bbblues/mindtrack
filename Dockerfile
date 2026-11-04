@@ -4,6 +4,7 @@ FROM php:8.2-apache
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         unzip \
+        cron \
         libicu-dev \
         libzip-dev \
         libonig-dev \
@@ -26,6 +27,12 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Configuracao PHP personalizada (limite de memoria para geracao de PDFs grandes)
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-mindtrack.ini
+
+# Cron mensal: sincroniza feriados nacionais (BrasilAPI) no banco local
+COPY docker/crontab /etc/cron.d/mindtrack
+RUN chmod 0644 /etc/cron.d/mindtrack \
+    && touch /var/log/mindtrack-holidays.log \
+    && crontab /etc/cron.d/mindtrack
 
 # Apache servindo a pasta public/ do CodeIgniter 4
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public

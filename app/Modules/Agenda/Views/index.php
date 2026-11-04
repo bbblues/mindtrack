@@ -31,6 +31,10 @@
 .zebra-even{background-color:#ffffff!important}
 .zebra-odd{background-color:#f8f9fa!important}
 
+/* Células indisponíveis: fora da agenda do profissional ou em feriado/fechamento */
+.cell-inactive{background-color:#e5e7eb!important}
+.cell-inactive-holiday{background-color:#fecaca!important}
+
 </style>
 <!-- This software includes DayPilot (https://www.daypilot.org). License: Apache License 2.0 -->
 <script src="https://unpkg.com/@daypilot/daypilot-lite-javascript@6.2.0/daypilot-javascript.min.js"></script>
@@ -70,6 +74,7 @@
                         <button type="button" @click="goToDate(d.date)" :class="d.active ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-gray-700 hover:bg-gray-50'" class="rounded-lg border border-gray-300 px-2.5 py-1.5 text-center leading-tight transition">
                             <span class="block text-[10px] uppercase tracking-wide opacity-70" x-text="d.weekday"></span>
                             <span class="block text-xs font-semibold" x-text="d.dayMonth"></span>
+                            <span x-show="d.holiday" x-cloak class="mt-1 block max-w-full truncate rounded-full px-1 py-0.5 text-[8px] font-semibold uppercase leading-none text-white" :style="'background-color:' + d.holiday.color" x-text="d.holiday.badge"></span>
                         </button>
                     </template>
                 </div>
@@ -193,6 +198,13 @@
                         <input type="date" id="recurrence_end_date" x-model="form.recurrence_end_date" :required="form.is_recurring" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
                     </div>
 
+                    <div x-show="form.is_recurring" x-cloak class="sm:col-span-2">
+                        <label class="flex items-start gap-2 text-sm text-gray-700">
+                            <input type="checkbox" x-model="form.ignore_impediments" class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span>Ignorar datas com impedimentos (fora da agenda do profissional ou feriados) ao gerar as ocorrências.</span>
+                        </label>
+                    </div>
+
                     <div class="sm:col-span-2">
                         <label for="notes" class="mb-1 block text-sm font-medium text-gray-700">Observações</label>
                         <textarea id="notes" x-model="form.notes" rows="2" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"></textarea>
@@ -259,12 +271,19 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                 </svg>
             </div>
-            <h3 class="text-lg font-semibold text-gray-800">Conflito de horário</h3>
-            <p class="mt-1 text-sm text-gray-600">O profissional já possui agendamento(s) neste horário:</p>
-            <ul class="mt-3 space-y-2">
+            <h3 class="text-lg font-semibold text-gray-800" x-text="conflict.title"></h3>
+            <p class="mt-1 text-sm text-gray-600" x-text="conflict.description"></p>
+            <ul x-show="conflict.conflicts.length > 0" x-cloak class="mt-3 space-y-2">
                 <template x-for="conflict in conflict.conflicts" :key="conflict.id">
                     <li class="rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
                         <span x-text="conflictLabel(conflict)"></span>
+                    </li>
+                </template>
+            </ul>
+            <ul x-show="conflict.reasons.length > 0" x-cloak class="mt-3 space-y-2">
+                <template x-for="reason in conflict.reasons" :key="reason">
+                    <li class="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-800">
+                        <span x-text="reason"></span>
                     </li>
                 </template>
             </ul>
@@ -356,6 +375,11 @@ function agendaApp() {
         return new Date(date.getYear(), date.getMonth(), date.getDay(), date.getHours(), date.getMinutes(), date.getSeconds());
     }
 
+    function toMinutes(time) {
+        const parts = String(time).split(':');
+        return (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+    }
+
     function iso(date) {
         return date.toString();
     }
@@ -389,8 +413,11 @@ function agendaApp() {
     return {
         open: false,
         submitting: false,
-        conflict: { open: false, conflicts: [] },
+        conflict: { open: false, conflicts: [], reasons: [], title: 'Conflito de horário', description: '' },
         pendingPayload: null,
+        holidays: {},
+        schedules: {},
+        clinicHours: {},
         selected: { open: false, event: null },
         moveModal: {
             open: false,
@@ -424,6 +451,7 @@ function agendaApp() {
             status: 'agendado',
             is_recurring: false,
             recurrence_end_date: '',
+            ignore_impediments: true,
             notes: '',
         },
         init() {
@@ -446,6 +474,7 @@ function agendaApp() {
             }
 
             this.setView('day');
+            this.fetchAvailability(this.dateStr + 'T00:00:00', addDaysIso(this.dateStr, 10) + 'T00:00:00').catch(() => {});
         },
         get periodLabel() {
             if (this.view === 'day') {
@@ -474,6 +503,7 @@ function agendaApp() {
                     weekday: d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''),
                     dayMonth: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
                     active: isoStr === this.dateStr,
+                    holiday: this.holidays[isoStr] || null,
                 });
             }
 
@@ -534,12 +564,20 @@ function agendaApp() {
         },
         async refresh() {
             const range = this.fetchRange();
+            await this.fetchAvailability(range.start, range.end);
             const events = await this.fetchEvents(range.start, range.end);
 
             console.log('[Agenda] refresh:', { view: this.view, range, count: events.length, events });
 
             if (this.view === 'day' && dayCalendar) {
-                dayCalendar.update({ startDate: this.dateStr, columns: buildColumns(), events });
+                const business = this.dayBusinessHours();
+                dayCalendar.update({
+                    startDate: this.dateStr,
+                    columns: buildColumns(),
+                    events,
+                    businessBeginsHour: business.begins,
+                    businessEndsHour: business.ends,
+                });
             } else if (this.view === 'week' && weekScheduler) {
                 weekScheduler.update({ startDate: weekStartIso(this.dateStr), resources: buildResources(), events });
             }
@@ -578,11 +616,37 @@ function agendaApp() {
 
             return events;
         },
+        async fetchAvailability(start, end) {
+            const params = new URLSearchParams({ start, end });
+            const url = <?= json_encode(site_url('agenda/availability')) ?> + '?' + params.toString();
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                return;
+            }
+
+            const data = await response.json();
+            Object.assign(this.holidays, data.holidays || {});
+            this.schedules = data.schedules || {};
+            Object.assign(this.clinicHours, data.clinicHours || {});
+        },
+        dayBusinessHours() {
+            const clinic = this.clinicHours[this.dateStr];
+
+            if (!clinic) {
+                return { begins: 0, ends: 0 };
+            }
+
+            return {
+                begins: toMinutes(clinic[0]) / 60,
+                ends: toMinutes(clinic[1]) / 60,
+            };
+        },
         initDayCalendar() {
             dayCalendar = new DayPilot.Calendar('dayView', {
                 viewType: 'Resources',
                 locale: 'pt-br',
-                heightSpec: 'Full',
+                heightSpec: 'BusinessHoursNoScroll',
                 startDate: this.dateStr,
                 businessBeginsHour: 0,
                 businessEndsHour: 24,
@@ -605,8 +669,6 @@ function agendaApp() {
                 scale: 'Day',
                 days: 7,
                 weekStarts: 0,
-                businessBeginsHour: 0,
-                businessEndsHour: 24,
                 businessWeekends: true,
                 heightSpec: 'Auto',
                 width: '100%',
@@ -654,17 +716,53 @@ function agendaApp() {
             // (24/7), eliminando o cinza nativo de madrugada e fim de semana.
             args.cell.properties.business = true;
 
-            const resourceId = args.cell.resource;
-            const index = professionals.findIndex((p) => String(p.id) === String(resourceId));
+            const resourceId = String(args.cell.resource);
+            const date = args.cell.start.toString('yyyy-MM-dd');
+            const startMin = toMinutes(args.cell.start.toString('HH:mm'));
+            const endMin = toMinutes(args.cell.end.toString('HH:mm'));
 
+            const holiday = this.holidays[date];
+            if (holiday) {
+                args.cell.properties.cssClass = 'cell-inactive-holiday';
+                args.cell.properties.backColor = '#fecaca';
+                return;
+            }
+
+            // Horário de funcionamento da clínica (aplicado só quando já carregado,
+            // para não pintar tudo de cinza antes do fetch de disponibilidade).
+            if (this.clinicHours && Object.keys(this.clinicHours).length > 0) {
+                const clinic = this.clinicHours[date];
+
+                if (!clinic) {
+                    args.cell.properties.cssClass = 'cell-inactive';
+                    args.cell.properties.backColor = '#e5e7eb';
+                    return;
+                }
+
+                const withinClinic = startMin < toMinutes(clinic[1]) && endMin > toMinutes(clinic[0]);
+
+                if (!withinClinic) {
+                    args.cell.properties.cssClass = 'cell-inactive';
+                    args.cell.properties.backColor = '#e5e7eb';
+                    return;
+                }
+            }
+
+            const intervals = (this.schedules[resourceId] || {})[date] || [];
+            const available = intervals.some((pair) => startMin < toMinutes(pair[1]) && endMin > toMinutes(pair[0]));
+
+            if (!available) {
+                args.cell.properties.cssClass = 'cell-inactive';
+                args.cell.properties.backColor = '#e5e7eb';
+                return;
+            }
+
+            const index = professionals.findIndex((p) => String(p.id) === resourceId);
             if (index < 0) {
                 return;
             }
 
             const isEven = (index % 2 === 0);
-
-            // O DayPilot Lite (6.x) expõe as propriedades de renderização em
-            // `args.cell.properties` (e não em `args.cell` diretamente).
             args.cell.properties.cssClass = isEven ? 'zebra-even' : 'zebra-odd';
             args.cell.properties.backColor = isEven ? '#ffffff' : '#f8f9fa';
         },
@@ -981,7 +1079,7 @@ function agendaApp() {
                 this.updateCsrf(result.data);
 
                 if (result.status === 409) {
-                    const proceed = confirm('Conflito de horário para o profissional. Deseja continuar mesmo assim?');
+                    const proceed = confirm(this.moveConflictMessage(result.data));
 
                     if (! proceed) {
                         return { ok: false, keepOpen: false };
@@ -1081,7 +1179,7 @@ function agendaApp() {
                 this.updateCsrf(result.data);
 
                 if (result.status === 409) {
-                    const proceed = confirm('Conflito de horário para o profissional. Deseja continuar mesmo assim?');
+                    const proceed = confirm(this.moveConflictMessage(result.data));
 
                     if (! proceed) {
                         await this.refresh();
@@ -1133,6 +1231,18 @@ function agendaApp() {
 
             return { status: response.status, data };
         },
+        moveConflictMessage(data) {
+            if (data.conflict) {
+                return 'Conflito de horário para o profissional. Deseja continuar mesmo assim?';
+            }
+
+            if (data.impediment) {
+                const reasons = (data.reasons || []).map((r) => r.reason).join('\n');
+                return 'O horário está fora da disponibilidade do profissional:\n' + reasons + '\n\nDeseja continuar mesmo assim?';
+            }
+
+            return 'Conflito detectado. Deseja continuar mesmo assim?';
+        },
         showToast(message, type = 'success') {
             this.toast.message = message;
             this.toast.type = type;
@@ -1154,6 +1264,7 @@ function agendaApp() {
                 status: this.form.status,
                 is_recurring: !! this.form.is_recurring,
                 recurrence_end_date: this.form.recurrence_end_date || null,
+                ignore_impediments: !! this.form.ignore_impediments,
                 notes: this.form.notes || '',
                 force_override: !! forceOverride,
             };
@@ -1194,9 +1305,21 @@ function agendaApp() {
                     this.token = data.csrf_hash;
                 }
 
-                if (response.status === 409 && data.conflict) {
+                if (response.status === 409) {
                     this.pendingPayload = payload;
-                    this.conflict.conflicts = data.conflicts || [];
+
+                    if (data.conflict) {
+                        this.conflict.conflicts = data.conflicts || [];
+                        this.conflict.reasons = [];
+                        this.conflict.title = 'Conflito de horário';
+                        this.conflict.description = 'O profissional já possui agendamento(s) neste horário:';
+                    } else if (data.impediment) {
+                        this.conflict.conflicts = [];
+                        this.conflict.reasons = (data.reasons || []).map((r) => r.reason);
+                        this.conflict.title = 'Fora da disponibilidade';
+                        this.conflict.description = 'O agendamento está fora da agenda do profissional ou em feriado/data de fechamento:';
+                    }
+
                     this.conflict.open = true;
                     this.open = false;
                     return;

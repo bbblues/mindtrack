@@ -117,6 +117,39 @@
             <h3 class="text-base font-semibold text-gray-800">Agenda</h3>
             <p class="mt-1 text-sm text-gray-500">Duração padrão das sessões.</p>
         </a>
+
+        <!-- Horário de Funcionamento -->
+        <a href="<?= site_url('settings/clinic-schedule') ?>" class="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow">
+            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <h3 class="text-base font-semibold text-gray-800">Horário de Funcionamento</h3>
+            <p class="mt-1 text-sm text-gray-500">Dias e horários em que a clínica está aberta.</p>
+        </a>
+
+        <!-- Disponibilidade dos Profissionais -->
+        <a href="<?= site_url('settings/professional-schedules') ?>" class="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow">
+            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            </div>
+            <h3 class="text-base font-semibold text-gray-800">Disponibilidade dos Profissionais</h3>
+            <p class="mt-1 text-sm text-gray-500">Dias e horários de atendimento de cada profissional.</p>
+        </a>
+
+        <!-- Feriados e Cidade -->
+        <a href="<?= site_url('settings/holidays') ?>" class="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow">
+            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                </svg>
+            </div>
+            <h3 class="text-base font-semibold text-gray-800">Feriados e Cidade</h3>
+            <p class="mt-1 text-sm text-gray-500">Feriados nacionais, locais e datas de fechamento.</p>
+        </a>
     </div>
 </div>
 <?= $this->endSection() ?>

@@ -1,5 +1,8 @@
 <?php
 
+use App\Modules\Agenda\Controllers\ClinicScheduleController;
+use App\Modules\Agenda\Controllers\HolidayController;
+use App\Modules\Agenda\Controllers\ProfessionalScheduleController;
 use App\Modules\Core\Controllers\HealthInsuranceController;
 use App\Modules\Core\Controllers\NoteTemplateController;
 use App\Modules\Core\Controllers\ReasonController;
@@ -52,6 +55,24 @@ $routes->group('settings', ['filter' => ['auth', 'role:admin,gestor']], static f
     // Configuracoes da Agenda (duracao padrao da sessao).
     $routes->get('appointment', [SettingsController::class, 'appointment'], ['as' => 'settings.appointment.index']);
     $routes->post('appointment', [SettingsController::class, 'storeAppointment'], ['as' => 'settings.appointment.store']);
+
+    // Disponibilidade semanal dos profissionais (agenda).
+    $routes->get('professional-schedules', [ProfessionalScheduleController::class, 'index'], ['as' => 'settings.professionalSchedules.index']);
+    $routes->post('professional-schedules', [ProfessionalScheduleController::class, 'store'], ['as' => 'settings.professionalSchedules.store']);
+
+    // Horario de funcionamento da clinica.
+    $routes->get('clinic-schedule', [ClinicScheduleController::class, 'index'], ['as' => 'settings.clinicSchedule.index']);
+    $routes->post('clinic-schedule', [ClinicScheduleController::class, 'store'], ['as' => 'settings.clinicSchedule.store']);
+
+    // Feriados nacionais (sync) + feriados locais/datas de fechamento + cidade.
+    $routes->get('holidays', [HolidayController::class, 'index'], ['as' => 'settings.holidays.index']);
+    $routes->post('holidays/sync-national', [HolidayController::class, 'syncNational'], ['as' => 'settings.holidays.syncNational']);
+    $routes->post('holidays/city', [HolidayController::class, 'storeCity'], ['as' => 'settings.holidays.city.store']);
+    $routes->post('holidays/city/update/(:num)', [HolidayController::class, 'updateCity'], ['as' => 'settings.holidays.city.update']);
+    $routes->post('holidays/city/delete/(:num)', [HolidayController::class, 'deleteCity'], ['as' => 'settings.holidays.city.destroy']);
+    $routes->post('holidays', [HolidayController::class, 'store'], ['as' => 'settings.holidays.store']);
+    $routes->post('holidays/update/(:num)', [HolidayController::class, 'update'], ['as' => 'settings.holidays.update']);
+    $routes->post('holidays/delete/(:num)', [HolidayController::class, 'destroy'], ['as' => 'settings.holidays.destroy']);
 
     // Equipe e acessos (mesmos controllers de /users e /roles, dentro do hub de configuracoes).
     $routes->get('users', [UserController::class, 'index'], ['as' => 'settings.users.index']);
