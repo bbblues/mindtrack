@@ -427,12 +427,17 @@ class AppointmentController extends BaseController
         return $slots;
     }
 
+    private function currentTenantId(): ?int
+    {
+        return is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
+    }
+
     private function defaultDurationMinutes(): int
     {
-        $setting = $this->settingModel->where('setting_key', 'appointment_default_duration_minutes')->first();
-        $value   = $setting['setting_value'] ?? '40';
+        $config = config('Agenda');
+        $value  = $this->settingModel->getValue((string) $config->settingKey, $this->currentTenantId());
 
-        return is_numeric($value) && (int) $value > 0 ? (int) $value : 40;
+        return is_numeric($value) && (int) $value > 0 ? (int) $value : (int) $config->defaultDuration;
     }
 
     /**

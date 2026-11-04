@@ -44,6 +44,10 @@ $routes->group('roles', ['filter' => ['auth', 'role:admin,gestor']], static func
 $routes->group('settings', ['filter' => ['auth', 'role:admin,gestor']], static function ($routes) {
     $routes->get('/', [SettingsController::class, 'index'], ['as' => 'settings.index']);
 
+    // Configuracoes da Agenda (duracao padrao da sessao).
+    $routes->get('appointment', [SettingsController::class, 'appointment'], ['as' => 'settings.appointment.index']);
+    $routes->post('appointment', [SettingsController::class, 'storeAppointment'], ['as' => 'settings.appointment.store']);
+
     // Equipe e acessos (mesmos controllers de /users e /roles, dentro do hub de configuracoes).
     $routes->get('users', [UserController::class, 'index'], ['as' => 'settings.users.index']);
     $routes->get('users/create', [UserController::class, 'create'], ['as' => 'settings.users.create']);

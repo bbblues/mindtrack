@@ -6,7 +6,13 @@
     <title><?= esc($title ?? 'MindTrack') ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <style>[x-cloak]{display:none!important}</style>
+    <style>
+        [x-cloak]{display:none!important}
+        /* Overlays de modal (position: fixed) dentro de contêineres space-y-*
+           não podem herdar o margin-top do space-y, senão o fundo escuro
+           não cobre a tela toda (fica uma faixa clara no topo). */
+        [class*="space-y-"] > .fixed { margin-top: 0 !important; }
+    </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
     <div class="min-h-screen">

@@ -733,9 +733,7 @@ function agendaApp() {
             this.isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
         },
         onStartChange() {
-            if (! this.form.end_time) {
-                this.form.end_time = this.addMinutes(this.form.start_time, this.defaultDuration);
-            }
+            this.form.end_time = this.addMinutes(this.form.start_time, this.defaultDuration);
         },
         addMinutes(time, minutes) {
             if (! time) {

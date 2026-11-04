@@ -106,6 +106,17 @@
             <h3 class="text-base font-semibold text-gray-800">Modelos de Evolução</h3>
             <p class="mt-1 text-sm text-gray-500">Textos prontos para os atendimentos.</p>
         </a>
+
+        <!-- Agenda -->
+        <a href="<?= site_url('settings/appointment') ?>" class="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow">
+            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <h3 class="text-base font-semibold text-gray-800">Agenda</h3>
+            <p class="mt-1 text-sm text-gray-500">Duração padrão das sessões.</p>
+        </a>
     </div>
 </div>
 <?= $this->endSection() ?>
