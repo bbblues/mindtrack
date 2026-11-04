@@ -58,6 +58,15 @@ class AvailabilityService
     }
 
     /**
+     * Indica se o profissional possui qualquer agenda própria cadastrada.
+     * Quando não possui, o profissional atende no horário da clínica.
+     */
+    public function hasOwnSchedule(int $professionalId): bool
+    {
+        return $this->scheduleModel->groupedForProfessional($professionalId) !== [];
+    }
+
+    /**
      * Retorna o horário de funcionamento da clínica indexado por dia da semana.
      * Quando a clínica ainda não configurou, usa o fallback padrão do Config.
      *
@@ -131,12 +140,12 @@ class AvailabilityService
             $reasons[] = $prefix . ': ' . (string) ($holiday['name'] ?? '');
         }
 
-        if (! $this->isWithinClinicHours($start, $end, $tenantId)) {
+        if ($this->hasOwnSchedule($professionalId)) {
+            if (! $this->isWithinSchedule($professionalId, $start, $end)) {
+                $reasons[] = 'Fora do horário de agenda do profissional.';
+            }
+        } elseif (! $this->isWithinClinicHours($start, $end, $tenantId)) {
             $reasons[] = 'Fora do horário de funcionamento da clínica.';
-        }
-
-        if (! $this->isWithinSchedule($professionalId, $start, $end)) {
-            $reasons[] = 'Fora do horário de agenda do profissional.';
         }
 
         return $reasons;
@@ -182,11 +191,18 @@ class AvailabilityService
         foreach ($professionalIds as $professionalId) {
             $professionalId = (int) $professionalId;
             $byDayOfWeek    = $this->scheduleModel->groupedForProfessional($professionalId);
+            $hasOwnSchedule = $byDayOfWeek !== [];
             $byDate         = [];
 
             foreach ($dates as $date) {
                 $dayOfWeek = (int) date('w', strtotime($date));
-                $intervals = $byDayOfWeek[$dayOfWeek] ?? [];
+
+                if ($hasOwnSchedule) {
+                    $intervals = $byDayOfWeek[$dayOfWeek] ?? [];
+                } else {
+                    $clinicInterval = $clinicSchedule[$dayOfWeek] ?? null;
+                    $intervals      = $clinicInterval !== null ? [$clinicInterval] : [];
+                }
 
                 if ($intervals !== []) {
                     $byDate[$date] = array_map(

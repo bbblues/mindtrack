@@ -24,7 +24,7 @@ class ProfessionalScheduleController extends BaseController
      */
     public function index(): string
     {
-        $professionals = $this->userModel->professionals();
+        $professionals = $this->userModel->evaluators();
 
         $schedulesByProfessional = [];
         foreach ($professionals as $professional) {
@@ -51,7 +51,7 @@ class ProfessionalScheduleController extends BaseController
             return $this->respondError([], 'Selecione um profissional válido.');
         }
 
-        $professionalIds = array_map('intval', array_column($this->userModel->professionals(), 'id'));
+        $professionalIds = array_map('intval', array_column($this->userModel->evaluators(), 'id'));
 
         if (! in_array($professionalId, $professionalIds, true)) {
             return $this->respondError([], 'O usuário informado não é um profissional válido.');

@@ -68,17 +68,7 @@ class AppointmentController extends BaseController
             'date'              => $date,
             'filterPatientId'   => $filterPatientId,
             'filterPatientName' => $filterPatientName,
-            'professionals'     => $this->userModel
-                ->select('users.*, (users.agenda_order = 0) AS agenda_unordered')
-                ->distinct()
-                ->join('role_user', 'role_user.user_id = users.id')
-                ->join('roles', 'roles.id = role_user.role_id')
-                ->where('roles.slug', 'profissional')
-                ->where('users.is_active', 1)
-                ->orderBy('agenda_unordered', 'ASC')
-                ->orderBy('users.agenda_order', 'ASC')
-                ->orderBy('users.name', 'ASC')
-                ->findAll(),
+            'professionals'     => $this->userModel->evaluators(),
             'patients'        => $patients,
             'units'           => $this->unitModel->orderBy('name', 'ASC')->findAll(),
             'rooms'           => $this->roomModel->orderBy('name', 'ASC')->findAll(),
@@ -296,7 +286,7 @@ class AppointmentController extends BaseController
         if ($scope === 'own') {
             $professionalIds = [(int) session('user_id')];
         } else {
-            $professionalIds = array_map('intval', array_column($this->userModel->professionals(), 'id'));
+            $professionalIds = array_map('intval', array_column($this->userModel->evaluators(), 'id'));
         }
 
         return $this->response->setJSON(

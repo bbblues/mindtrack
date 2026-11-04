@@ -728,26 +728,6 @@ function agendaApp() {
                 return;
             }
 
-            // Horário de funcionamento da clínica (aplicado só quando já carregado,
-            // para não pintar tudo de cinza antes do fetch de disponibilidade).
-            if (this.clinicHours && Object.keys(this.clinicHours).length > 0) {
-                const clinic = this.clinicHours[date];
-
-                if (!clinic) {
-                    args.cell.properties.cssClass = 'cell-inactive';
-                    args.cell.properties.backColor = '#e5e7eb';
-                    return;
-                }
-
-                const withinClinic = startMin < toMinutes(clinic[1]) && endMin > toMinutes(clinic[0]);
-
-                if (!withinClinic) {
-                    args.cell.properties.cssClass = 'cell-inactive';
-                    args.cell.properties.backColor = '#e5e7eb';
-                    return;
-                }
-            }
-
             const intervals = (this.schedules[resourceId] || {})[date] || [];
             const available = intervals.some((pair) => startMin < toMinutes(pair[1]) && endMin > toMinutes(pair[0]));
 

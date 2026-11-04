@@ -154,6 +154,31 @@ class UserModel extends BaseModel
     }
 
     /**
+     * Lista os usuarios que podem realizar avaliacoes (possuem a permissao
+     * "assessments.start"). Sao estes que aparecem na agenda.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function evaluators(): array
+    {
+        return $this
+            ->select('users.*, (users.agenda_order = 0) AS agenda_unordered')
+            ->distinct()
+            ->join('role_user', 'role_user.user_id = users.id')
+            ->join('roles', 'roles.id = role_user.role_id')
+            ->join('permission_role', 'permission_role.role_id = roles.id')
+            ->join('permissions', 'permissions.id = permission_role.permission_id')
+            ->where('permissions.slug', 'assessments.start')
+            ->where('roles.deleted_at', null)
+            ->where('permissions.deleted_at', null)
+            ->where('users.is_active', 1)
+            ->orderBy('agenda_unordered', 'ASC')
+            ->orderBy('users.agenda_order', 'ASC')
+            ->orderBy('users.name', 'ASC')
+            ->findAll();
+    }
+
+    /**
      * Proximo valor da coluna `agenda_order` para um novo usuario do tenant.
      *
      * O novo profissional entra no fim da fila (MAX + 1) sem baguncar a
