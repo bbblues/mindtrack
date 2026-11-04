@@ -10,6 +10,7 @@ use App\Modules\Core\Models\UnitModel;
 use App\Modules\Core\Models\UserModel;
 use App\Modules\Patients\Libraries\PatientColor;
 use App\Modules\Patients\Models\PatientModel;
+use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
 
 class AppointmentController extends BaseController
@@ -39,14 +40,24 @@ class AppointmentController extends BaseController
     /**
      * Renderiza a grade da agenda para uma data (padrao: hoje).
      */
-    public function index(): string
+    public function index(): string|RedirectResponse
     {
+        $scope = $this->agendaViewScope();
+
+        if ($scope === 'none') {
+            return redirect()->to('/dashboard')->with('error', 'Acesso negado. Você não tem permissão para acessar a agenda.');
+        }
+
         $date = (string) $this->request->getGet('date');
         if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             $date = date('Y-m-d');
         }
 
         [$filterPatientId, $filterPatientName] = $this->resolvePatientFilter();
+
+        $patients = $scope === 'own'
+            ? $this->patientModel->forProfessional((int) session('user_id'))
+            : $this->patientModel->orderBy('name', 'ASC')->findAll();
 
         return view('App\Modules\Agenda\Views\index', [
             'title'             => 'Agenda',
@@ -64,12 +75,30 @@ class AppointmentController extends BaseController
                 ->orderBy('users.agenda_order', 'ASC')
                 ->orderBy('users.name', 'ASC')
                 ->findAll(),
-            'patients'        => $this->patientModel->orderBy('name', 'ASC')->findAll(),
+            'patients'        => $patients,
             'units'           => $this->unitModel->orderBy('name', 'ASC')->findAll(),
             'rooms'           => $this->roomModel->orderBy('name', 'ASC')->findAll(),
             'defaultDuration' => $this->defaultDurationMinutes(),
             'statusOptions'   => $this->statusOptions(),
         ]);
+    }
+
+    /**
+     * Escopo de visualizacao da agenda do usuario logado.
+     *
+     * @return 'any'|'own'|'none'
+     */
+    private function agendaViewScope(): string
+    {
+        if (can('agenda.view.any')) {
+            return 'any';
+        }
+
+        if (can('agenda.view.own') || can('patients.view.own')) {
+            return 'own';
+        }
+
+        return 'none';
     }
 
     /**
@@ -81,6 +110,10 @@ class AppointmentController extends BaseController
     public function store(): ResponseInterface
     {
         $payload = $this->requestPayload();
+
+        if (! can('agenda.create')) {
+            return $this->jsonError(403, 'Acesso negado. Você não tem permissão para criar agendamentos.');
+        }
 
         $patientId      = (int) ($payload['patient_id'] ?? 0);
         $professionalId = (int) ($payload['professional_id'] ?? 0);
@@ -180,12 +213,20 @@ class AppointmentController extends BaseController
      */
     public function events(): ResponseInterface
     {
+        $scope = $this->agendaViewScope();
+
+        if ($scope === 'none') {
+            return $this->response->setJSON([]);
+        }
+
         $start = $this->normalizeDateTime($this->request->getGet('start'));
         $end   = $this->normalizeDateTime($this->request->getGet('end'));
 
         $patientId = (int) $this->request->getGet('patient_id');
 
-        $appointments = $this->appointmentModel->forRange($start, $end, $patientId > 0 ? $patientId : null);
+        $ownProfessionalId = $scope === 'own' ? (int) session('user_id') : null;
+
+        $appointments = $this->appointmentModel->forRange($start, $end, $patientId > 0 ? $patientId : null, $ownProfessionalId);
 
         $events = [];
 
@@ -206,6 +247,10 @@ class AppointmentController extends BaseController
         $patientId = (int) $this->request->getGet('patient_id');
 
         if ($patientId <= 0) {
+            return [null, null];
+        }
+
+        if (! can_own('patients.view', $patientId)) {
             return [null, null];
         }
 
@@ -258,6 +303,10 @@ class AppointmentController extends BaseController
         $appointment = $this->appointmentModel->find($id);
         if ($appointment === null) {
             return $this->jsonError(404, 'Agendamento nao encontrado.');
+        }
+
+        if (! can_access_appointment('agenda.edit', $appointment)) {
+            return $this->jsonError(403, 'Acesso negado. Você não tem permissão para editar este agendamento.');
         }
 
         $startTime = $this->normalizeDateTime($payload['start'] ?? null);

@@ -16,7 +16,7 @@ $routes->group('patients', ['filter' => 'auth'], static function ($routes) {
     $routes->post('/', [PatientController::class, 'store'], ['as' => 'patients.store']);
     $routes->get('edit/(:num)', [PatientController::class, 'edit'], ['as' => 'patients.edit']);
     $routes->post('update/(:num)', [PatientController::class, 'update'], ['as' => 'patients.update']);
-    $routes->post('toggle-status/(:num)', [PatientController::class, 'toggleStatus'], ['as' => 'patients.toggleStatus', 'filter' => 'role:admin,gestor']);
+    $routes->post('toggle-status/(:num)', [PatientController::class, 'toggleStatus'], ['as' => 'patients.toggleStatus', 'filter' => 'permission:patients.deactivate.any,patients.deactivate.own']);
     $routes->post('(:num)/posts', [PatientFeedController::class, 'storePost'], ['as' => 'patients.posts.store']);
     $routes->post('(:num)/milestones', [PatientFeedController::class, 'storeMilestone'], ['as' => 'patients.milestones.store']);
 });

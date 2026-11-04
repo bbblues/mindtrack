@@ -3,12 +3,42 @@
 namespace App\Modules\Core\Controllers;
 
 use App\Controllers\BaseController;
+use App\Libraries\PermissionCatalog;
+use App\Modules\Core\Models\PermissionModel;
+use App\Modules\Core\Models\PermissionRoleModel;
 use App\Modules\Core\Models\RoleModel;
+use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
 
 class RoleController extends BaseController
 {
     protected RoleModel $roleModel;
+
+    private const MODULE_LABELS = [
+        'patients'    => 'Pacientes',
+        'agenda'      => 'Agenda',
+        'assessments' => 'Avaliações',
+        'core'        => 'Configurações',
+    ];
+
+    private const ACTION_LABELS = [
+        'patients.create'           => 'Criar paciente',
+        'patients.view'             => 'Visualizar paciente',
+        'patients.edit'             => 'Editar paciente',
+        'patients.deactivate'       => 'Desativar paciente',
+        'agenda.create'             => 'Criar agendamento',
+        'agenda.view'               => 'Visualizar agenda',
+        'agenda.edit'               => 'Editar agendamento',
+        'agenda.confirm'            => 'Confirmar / marcar falta',
+        'assessments.start'         => 'Iniciar avaliação',
+        'assessments.edit'          => 'Editar avaliações',
+        'assessments.finalize'      => 'Finalizar avaliação',
+        'assessments.export_pdf'    => 'Exportar avaliação em PDF',
+        'settings.manage_catalog'   => 'Gerenciar Unidades, Salas, Especialidades e Convênios',
+        'settings.manage_users'     => 'Gerenciar Usuários',
+        'settings.manage_roles'     => 'Gerenciar Cargos e Permissões',
+        'dashboard.view_management' => 'Visualizar painel de gestão',
+    ];
 
     public function __construct()
     {
@@ -29,6 +59,153 @@ class RoleController extends BaseController
             'basePath' => $this->basePath(),
             'roleRows' => $roleRows,
         ]);
+    }
+
+    /**
+     * Exibe a tela de gerenciamento de permissoes de um cargo.
+     */
+    public function permissions($id = null): string|RedirectResponse
+    {
+        $role = $this->roleModel->find((int) $id);
+
+        if ($role === null) {
+            return redirect()->to(site_url($this->basePath()))->with('error', 'Cargo não encontrado.');
+        }
+
+        $roles = $this->roleModel->orderBy('name', 'ASC')->findAll();
+
+        $roleRows = [];
+        foreach ($roles as $r) {
+            $roleRows[] = [
+                'id'         => (int) $r['id'],
+                'name'       => (string) $r['name'],
+                'slug'       => (string) ($r['slug'] ?? ''),
+                'is_default' => $this->roleModel->isDefaultSlug((string) ($r['slug'] ?? '')),
+            ];
+        }
+
+        $permissionRoleModel = new PermissionRoleModel();
+
+        $rolePermissionIds = [];
+        foreach ($roles as $r) {
+            $rolePermissionIds[(int) $r['id']] = $permissionRoleModel->permissionIdsForRole((int) $r['id']);
+        }
+
+        return view('App\Modules\Core\Views\roles\permissions', [
+            'title'             => 'Cargos e Permissões',
+            'basePath'          => $this->basePath(),
+            'roles'             => $roleRows,
+            'modules'           => $this->permissionModules(),
+            'rolePermissionIds' => $rolePermissionIds,
+            'selectedRoleId'    => (int) $role['id'],
+        ]);
+    }
+
+    /**
+     * Sincroniza as permissoes selecionadas de um cargo (via AJAX).
+     */
+    public function updatePermissions($id = null): ResponseInterface
+    {
+        $role = $this->roleModel->find((int) $id);
+
+        if ($role === null) {
+            return $this->respondError([], 'Cargo não encontrado.', 404);
+        }
+
+        if ((string) ($role['slug'] ?? '') === 'admin') {
+            return $this->respondError([], 'O cargo Admin possui acesso total e não pode ser editado.', 422);
+        }
+
+        $permissionIds = $this->request->getPost('permission_ids');
+        if (! is_array($permissionIds)) {
+            $permissionIds = [];
+        }
+
+        $permissionIds = array_values(array_unique(array_filter(array_map('intval', $permissionIds), static fn (int $v): bool => $v > 0)));
+
+        (new PermissionRoleModel())->syncPermissions((int) $role['id'], $permissionIds);
+
+        return $this->respondSuccess('Permissões salvas com sucesso.');
+    }
+
+    /**
+     * Catalogo de permissoes agrupado por modulo e acao (para a tela).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function permissionModules(): array
+    {
+        $permissionModel = new PermissionModel();
+        $permissionMap   = [];
+
+        foreach ($permissionModel->findAll() as $permission) {
+            $permissionMap[(string) $permission['slug']] = (int) $permission['id'];
+        }
+
+        $singles = [];
+        $scoped  = [];
+
+        foreach (PermissionCatalog::all() as $item) {
+            $module       = (string) ($item['module'] ?? '');
+            $slug         = (string) ($item['slug'] ?? '');
+            $scope        = isset($item['scope']) ? (string) $item['scope'] : null;
+            $sort         = (int) ($item['sort_order'] ?? 0);
+            $permissionId = $permissionMap[$slug] ?? 0;
+
+            if ($module === '') {
+                continue;
+            }
+
+            if ($scope === null) {
+                $singles[$module][] = [
+                    'type'         => 'single',
+                    'label'        => $this->actionLabel($slug),
+                    'sort'         => $sort,
+                    'permissionId' => $permissionId,
+                    'slug'         => $slug,
+                ];
+                continue;
+            }
+
+            $base = (string) preg_replace('/\.(any|own)$/', '', $slug);
+
+            if (! isset($scoped[$module][$base])) {
+                $scoped[$module][$base] = [
+                    'type'  => 'scoped',
+                    'base'  => $base,
+                    'label' => $this->actionLabel($base),
+                    'sort'  => $sort,
+                    'any'   => null,
+                    'own'   => null,
+                ];
+            }
+
+            $scoped[$module][$base][$scope] = [
+                'permissionId' => $permissionId,
+                'slug'         => $slug,
+            ];
+        }
+
+        $modules = [];
+
+        foreach (self::MODULE_LABELS as $moduleSlug => $moduleLabel) {
+            $actions = array_merge($singles[$moduleSlug] ?? [], array_values($scoped[$moduleSlug] ?? []));
+
+            usort($actions, static fn (array $a, array $b): int => ($a['sort'] ?? 0) <=> ($b['sort'] ?? 0));
+
+            $modules[] = [
+                'slug'    => $moduleSlug,
+                'label'   => $moduleLabel,
+                'actions' => $actions,
+            ];
+        }
+
+        return $modules;
+    }
+
+    private function actionLabel(string $slug): string
+    {
+        return self::ACTION_LABELS[$slug] ?? $slug;
     }
 
     /**

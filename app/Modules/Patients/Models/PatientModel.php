@@ -92,12 +92,18 @@ class PatientModel extends BaseModel
      *
      * @return array<int, array<string, mixed>>
      */
-    public function paginateWithCatalogs(?string $search = null, bool $showInactive = false): array
+    public function paginateWithCatalogs(?string $search = null, bool $showInactive = false, ?int $professionalId = null): array
     {
         $this
             ->select('patients.*, units.name AS unit_name, health_insurances.name AS insurance_name')
             ->join('units', 'units.id = patients.unit_id', 'left')
             ->join('health_insurances', 'health_insurances.id = patients.health_insurance_id', 'left');
+
+        if ($professionalId !== null) {
+            $this
+                ->join('patient_professionals', 'patient_professionals.patient_id = patients.id')
+                ->where('patient_professionals.user_id', $professionalId);
+        }
 
         $search = trim((string) $search);
 
@@ -127,7 +133,7 @@ class PatientModel extends BaseModel
      *
      * @return array<int, array<string, mixed>>
      */
-    public function quickSearch(string $query, int $limit = 8): array
+    public function quickSearch(string $query, int $limit = 8, ?int $professionalId = null): array
     {
         $query = trim($query);
 
@@ -137,9 +143,17 @@ class PatientModel extends BaseModel
 
         $normalizedCpf = preg_replace('/\D/', '', $query) ?: $query;
 
-        return $this
+        $this
             ->select('patients.id, patients.name, patients.cpf, patients.birth_date, patients.color, patients.is_active, units.name AS unit_name')
-            ->join('units', 'units.id = patients.unit_id', 'left')
+            ->join('units', 'units.id = patients.unit_id', 'left');
+
+        if ($professionalId !== null) {
+            $this
+                ->join('patient_professionals', 'patient_professionals.patient_id = patients.id')
+                ->where('patient_professionals.user_id', $professionalId);
+        }
+
+        return $this
             ->groupStart()
             ->like('patients.name', $query)
             ->orLike('patients.cpf', $normalizedCpf)
@@ -148,6 +162,22 @@ class PatientModel extends BaseModel
             ->limit($limit)
             ->get()
             ->getResultArray();
+    }
+
+    /**
+     * Lista os pacientes vinculados a um profissional (para o filtro "own").
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function forProfessional(int $userId): array
+    {
+        return $this
+            ->select('patients.*')
+            ->join('patient_professionals', 'patient_professionals.patient_id = patients.id')
+            ->where('patient_professionals.user_id', $userId)
+            ->where('patient_professionals.deleted_at', null)
+            ->orderBy('patients.name', 'ASC')
+            ->findAll();
     }
 
     /**

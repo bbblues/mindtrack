@@ -41,6 +41,11 @@ $routes->group('roles', ['filter' => ['auth', 'role:admin,gestor']], static func
     $routes->post('delete/(:num)', [RoleController::class, 'destroy'], ['as' => 'roles.destroy']);
 });
 
+$routes->group('roles', ['filter' => ['auth', 'permission:settings.manage_roles']], static function ($routes) {
+    $routes->get('permissions/(:num)', [RoleController::class, 'permissions'], ['as' => 'roles.permissions']);
+    $routes->post('permissions/(:num)', [RoleController::class, 'updatePermissions'], ['as' => 'roles.updatePermissions']);
+});
+
 $routes->group('settings', ['filter' => ['auth', 'role:admin,gestor']], static function ($routes) {
     $routes->get('/', [SettingsController::class, 'index'], ['as' => 'settings.index']);
 
@@ -59,6 +64,8 @@ $routes->group('settings', ['filter' => ['auth', 'role:admin,gestor']], static f
     $routes->post('roles', [RoleController::class, 'store'], ['as' => 'settings.roles.store']);
     $routes->post('roles/update/(:num)', [RoleController::class, 'update'], ['as' => 'settings.roles.update']);
     $routes->post('roles/delete/(:num)', [RoleController::class, 'destroy'], ['as' => 'settings.roles.destroy']);
+    $routes->get('roles/permissions/(:num)', [RoleController::class, 'permissions'], ['as' => 'settings.roles.permissions', 'filter' => 'permission:settings.manage_roles']);
+    $routes->post('roles/permissions/(:num)', [RoleController::class, 'updatePermissions'], ['as' => 'settings.roles.updatePermissions', 'filter' => 'permission:settings.manage_roles']);
 
     $routes->get('units', [UnitController::class, 'index'], ['as' => 'settings.units.index']);
     $routes->post('units', [UnitController::class, 'store'], ['as' => 'settings.units.store']);

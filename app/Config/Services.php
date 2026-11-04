@@ -19,6 +19,18 @@ use CodeIgniter\Config\BaseService;
  */
 class Services extends BaseService
 {
+    /**
+     * Serviço central de autorização (RBAC granular).
+     */
+    public static function authorization($getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('authorization');
+        }
+
+        return new \App\Libraries\Authorization();
+    }
+
     /*
      * public static function example($getShared = true)
      * {

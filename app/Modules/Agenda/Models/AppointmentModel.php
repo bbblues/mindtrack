@@ -107,7 +107,7 @@ class AppointmentModel extends BaseModel
      *
      * @return array<int, array<string, mixed>>
      */
-    public function forRange(?string $start = null, ?string $end = null, ?int $patientId = null): array
+    public function forRange(?string $start = null, ?string $end = null, ?int $patientId = null, ?int $ownProfessionalId = null): array
     {
         $builder = $this->newQuery()
             ->select($this->table . '.*, patients.name AS patient_name, patients.color AS patient_color, users.name AS professional_name')
@@ -117,6 +117,18 @@ class AppointmentModel extends BaseModel
 
         if ($patientId !== null) {
             $builder->where($this->table . '.patient_id', $patientId);
+        }
+
+        if ($ownProfessionalId !== null) {
+            $builder->groupStart()
+                ->where($this->table . '.professional_id', $ownProfessionalId)
+                ->orWhereIn($this->table . '.patient_id', static function (BaseBuilder $sub) use ($ownProfessionalId): BaseBuilder {
+                    return $sub->select('patient_id')
+                        ->from('patient_professionals')
+                        ->where('user_id', $ownProfessionalId)
+                        ->where('deleted_at', null);
+                })
+                ->groupEnd();
         }
 
         if ($start !== null && $end !== null) {

@@ -54,6 +54,9 @@
                             <td class="px-6 py-4 text-gray-600" x-text="role.created_at"></td>
                             <td class="px-6 py-4 text-right">
                                 <button type="button" @click="openEdit(role)" class="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Editar</button>
+                                <?php if (can('settings.manage_roles')): ?>
+                                    <a :href="'<?= site_url($basePath . '/permissions/') ?>' + role.id" class="ml-1 inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-600 transition hover:bg-blue-50">Permissões</a>
+                                <?php endif; ?>
                                 <button type="button" x-show="!role.is_default" @click="remove(role)" class="ml-1 inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50">Excluir</button>
                             </td>
                         </tr>

@@ -35,12 +35,16 @@ class EvolutionController extends BaseController
     /**
      * Exibe a tela para registrar a evolucao de um agendamento.
      */
-    public function create($appointmentId = null): string|RedirectResponse
+    public function create($appointmentId = null): string|RedirectResponse|ResponseInterface
     {
         $appointment = $this->appointmentModel->find((int) $appointmentId);
 
         if ($appointment === null) {
             return redirect()->to(site_url('agenda'))->with('error', 'Agendamento nao encontrado.');
+        }
+
+        if (! $this->canAccessEvolutionAppointment($appointment)) {
+            return $this->response->setStatusCode(403)->setBody('Acesso negado. Você não tem permissão para registrar evolução deste agendamento.');
         }
 
         $patient      = $this->patientModel->find((int) ($appointment['patient_id'] ?? 0));
@@ -73,6 +77,10 @@ class EvolutionController extends BaseController
         $appointment = $this->appointmentModel->find($appointmentId);
         if ($appointment === null) {
             return $this->jsonError(404, 'Agendamento nao encontrado.');
+        }
+
+        if (! $this->canAccessEvolutionAppointment($appointment)) {
+            return $this->jsonError(403, 'Acesso negado. Você não tem permissão para registrar evolução deste agendamento.');
         }
 
         $evolutionText = trim((string) ($payload['evolution_text'] ?? ''));
@@ -121,7 +129,7 @@ class EvolutionController extends BaseController
     /**
      * Historico de evolucoes de um paciente (feed cronologico).
      */
-    public function index($patientId = null): string|RedirectResponse
+    public function index($patientId = null): string|RedirectResponse|ResponseInterface
     {
         $patient = $this->patientModel->find((int) $patientId);
 
@@ -129,11 +137,32 @@ class EvolutionController extends BaseController
             return redirect()->to(site_url('patients'))->with('error', 'Paciente nao encontrado.');
         }
 
+        if (! can_own('patients.view', (int) $patientId)) {
+            return $this->response->setStatusCode(403)->setBody('Acesso negado. Você não tem permissão para visualizar as evoluções deste paciente.');
+        }
+
         return view('App\Modules\Evolutions\Views\index', [
             'title'      => 'Historico de Evolucoes',
             'patient'    => $patient,
             'evolutions' => $this->evolutionModel->forPatient((int) $patientId),
         ]);
+    }
+
+    /**
+     * Indica se o usuário pode acessar a evolução de um agendamento:
+     * é o profissional responsável OU pode visualizar o paciente.
+     *
+     * @param array<string, mixed> $appointment
+     */
+    private function canAccessEvolutionAppointment(array $appointment): bool
+    {
+        $userId = session('user_id');
+
+        if (is_numeric($userId) && (int) ($appointment['professional_id'] ?? 0) === (int) $userId) {
+            return true;
+        }
+
+        return can_own('patients.view', (int) ($appointment['patient_id'] ?? 0));
     }
 
     /**

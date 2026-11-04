@@ -74,6 +74,10 @@ class AssessmentController extends BaseController
             return redirect()->back()->with('error', 'Paciente ou protocolo nao encontrado.');
         }
 
+        if (! can_own('patients.view', $patientId)) {
+            return redirect()->back()->with('error', 'Acesso negado. Você não tem permissão para iniciar avaliação para este paciente.');
+        }
+
         $tenantId = is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
 
         $assessmentId = $this->assessmentModel->insert([
@@ -108,7 +112,7 @@ class AssessmentController extends BaseController
     /**
      * Exibe a interface de execucao da avaliacao.
      */
-    public function show($id = null): string|RedirectResponse
+    public function show($id = null): string|RedirectResponse|ResponseInterface
     {
         $assessment = $this->assessmentModel->find((int) $id);
 
@@ -121,6 +125,10 @@ class AssessmentController extends BaseController
 
         if ($patient === null || $protocol === null) {
             return redirect()->to(site_url('patients'))->with('error', 'Paciente ou protocolo nao encontrado.');
+        }
+
+        if (! can_own('patients.view', (int) $assessment['patient_id'])) {
+            return $this->response->setStatusCode(403)->setBody('Acesso negado. Você não tem permissão para visualizar esta avaliação.');
         }
 
         $statuses = $this->statusModel
@@ -160,6 +168,10 @@ class AssessmentController extends BaseController
 
             if ($assessment === null) {
                 return redirect()->to(site_url('patients'))->with('error', 'Avaliacao nao encontrada.');
+            }
+
+            if (! can_own('patients.view', (int) $assessment['patient_id'])) {
+                return redirect()->to(site_url('patients'))->with('error', 'Acesso negado. Você não tem permissão para exportar esta avaliação.');
             }
 
             if (($assessment['status'] ?? '') !== 'completed') {
@@ -272,6 +284,10 @@ class AssessmentController extends BaseController
             return $this->jsonError(404, 'Avaliacao nao encontrada.');
         }
 
+        if (! can_own('assessments.edit', (int) $assessment['patient_id'])) {
+            return $this->jsonError(403, 'Acesso negado. Você não tem permissão para editar esta avaliação.');
+        }
+
         if (($assessment['status'] ?? '') === 'completed') {
             return $this->jsonError(409, 'Avaliacao finalizada: os itens nao podem ser alterados.');
         }
@@ -356,6 +372,10 @@ class AssessmentController extends BaseController
 
         if ($assessment === null) {
             return $this->jsonError(404, 'Avaliacao nao encontrada.');
+        }
+
+        if (! can_own('assessments.finalize', (int) $assessment['patient_id'])) {
+            return $this->jsonError(403, 'Acesso negado. Você não tem permissão para finalizar esta avaliação.');
         }
 
         if (($assessment['status'] ?? '') === 'completed') {

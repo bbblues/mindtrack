@@ -2,6 +2,7 @@
 
 namespace App\Modules\Core\Models;
 
+use App\Libraries\PermissionCatalog;
 use App\Models\BaseModel;
 
 class RoleModel extends BaseModel
@@ -54,6 +55,40 @@ class RoleModel extends BaseModel
             ]) === false) {
                 log_message('error', 'Falha ao criar o cargo padrão "' . $role['slug'] . '" para o tenant ' . $tenantId . '.');
             }
+        }
+
+        $this->assignDefaultPermissions($tenantId);
+    }
+
+    /**
+     * Vincula as permissoes padrao aos 4 cargos padrao do tenant.
+     */
+    private function assignDefaultPermissions(int $tenantId): void
+    {
+        $permissionModel     = new PermissionModel();
+        $permissionRoleModel = new PermissionRoleModel();
+
+        foreach (PermissionCatalog::defaultRolePermissions() as $roleSlug => $permissionSlugs) {
+            $role = $this
+                ->where('tenant_id', $tenantId)
+                ->where('slug', $roleSlug)
+                ->first();
+
+            if ($role === null) {
+                continue;
+            }
+
+            $permissionIds = [];
+
+            foreach ($permissionSlugs as $slug) {
+                $permission = $permissionModel->where('slug', $slug)->first();
+
+                if ($permission !== null) {
+                    $permissionIds[] = (int) $permission['id'];
+                }
+            }
+
+            $permissionRoleModel->syncPermissions((int) $role['id'], $permissionIds);
         }
     }
 

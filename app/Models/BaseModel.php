@@ -36,13 +36,6 @@ abstract class BaseModel extends Model
     protected static array $tenantColumnCache = [];
 
     /**
-     * Controla se o filtro de tenant ja foi aplicado no builder da tabela.
-     *
-     * @var array<string, bool>
-     */
-    protected array $tenantScopeApplied = [];
-
-    /**
      * Retorna o tenant_id do usuario logado.
      * Super Admin (tenant_id = null) e execucoes CLI nao filtram.
      */
@@ -71,11 +64,11 @@ abstract class BaseModel extends Model
             return $builder;
         }
 
-        // O builder da propria tabela e compartilhado/cacheado pelo Model.
-        if ($tableName === $this->table && ($this->tenantScopeApplied[$tableName] ?? false)) {
-            return $builder;
-        }
-
+        // IMPORTANTE: o Query Builder compartilhado pelo Model limpa as
+        // clausulas WHERE apos cada execucao (BaseBuilder::get -> resetSelect).
+        // Por isso o filtro de tenant NAO pode ser cacheado: ele precisa ser
+        // reaplicado em toda chamada a builder(), caso contrario a consulta
+        // seguinte vazaria registros de outros tenants.
         if ($this->includeGlobalRows) {
             $builder
                 ->groupStart()
@@ -84,10 +77,6 @@ abstract class BaseModel extends Model
                 ->groupEnd();
         } else {
             $builder->where($tableName . '.tenant_id', $tenantId);
-        }
-
-        if ($tableName === $this->table) {
-            $this->tenantScopeApplied[$tableName] = true;
         }
 
         return $builder;

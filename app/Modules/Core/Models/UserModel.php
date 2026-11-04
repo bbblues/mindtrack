@@ -135,6 +135,25 @@ class UserModel extends BaseModel
     }
 
     /**
+     * Lista os profissionais (usuarios com o papel "profissional") do tenant.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function professionals(): array
+    {
+        return $this
+            ->select('users.*')
+            ->distinct()
+            ->join('role_user', 'role_user.user_id = users.id')
+            ->join('roles', 'roles.id = role_user.role_id')
+            ->where('roles.slug', 'profissional')
+            ->where('roles.deleted_at', null)
+            ->where('users.is_active', 1)
+            ->orderBy('users.name', 'ASC')
+            ->findAll();
+    }
+
+    /**
      * Proximo valor da coluna `agenda_order` para um novo usuario do tenant.
      *
      * O novo profissional entra no fim da fila (MAX + 1) sem baguncar a

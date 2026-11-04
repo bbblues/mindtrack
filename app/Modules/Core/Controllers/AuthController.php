@@ -3,6 +3,7 @@
 namespace App\Modules\Core\Controllers;
 
 use App\Controllers\BaseController;
+use App\Modules\Core\Models\PermissionRoleModel;
 use App\Modules\Core\Models\UserModel;
 use CodeIgniter\HTTP\RedirectResponse;
 
@@ -50,7 +51,8 @@ class AuthController extends BaseController
             'tenant_id'      => $user['tenant_id'] !== null ? (int) $user['tenant_id'] : null,
             'is_super_admin' => (int) $user['is_super_admin'],
             'user_name'      => (string) $user['name'],
-            'user_role_slugs' => $userModel->roleSlugsForUser((int) $user['id']),
+            'user_role_slugs'       => $userModel->roleSlugsForUser((int) $user['id']),
+            'user_permission_slugs' => (new PermissionRoleModel())->slugsForUser((int) $user['id']),
         ]);
         session()->regenerate();
 

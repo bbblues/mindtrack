@@ -29,6 +29,7 @@ class Filters extends BaseFilters
         'auth'          => \App\Filters\AuthFilter::class,
         'superadmin'    => \App\Filters\SuperAdminFilter::class,
         'role'          => \App\Filters\RoleFilter::class,
+        'permission'    => \App\Filters\PermissionFilter::class,
         'toolbar'       => DebugToolbar::class,
         'honeypot'      => Honeypot::class,
         'invalidchars'  => InvalidChars::class,

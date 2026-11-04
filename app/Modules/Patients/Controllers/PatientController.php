@@ -7,12 +7,14 @@ use App\Modules\Agenda\Models\AppointmentModel;
 use App\Modules\Assessments\Models\PatientAssessmentModel;
 use App\Modules\Core\Models\HealthInsuranceModel;
 use App\Modules\Core\Models\UnitModel;
+use App\Modules\Core\Models\UserModel;
 use App\Modules\Evolutions\Models\SessionEvolutionModel;
 use App\Modules\Patients\Models\GuardianModel;
 use App\Modules\Patients\Models\PatientGuardianModel;
 use App\Modules\Patients\Models\PatientMilestoneModel;
 use App\Modules\Patients\Models\PatientModel;
 use App\Modules\Patients\Models\PatientPostModel;
+use App\Modules\Patients\Models\PatientProfessionalModel;
 use App\Modules\Protocols\Models\ProtocolModel;
 use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -41,6 +43,10 @@ class PatientController extends BaseController
 
     protected PatientPostModel $postModel;
 
+    protected PatientProfessionalModel $patientProfessionalModel;
+
+    protected UserModel $userModel;
+
     public function __construct()
     {
         $this->patientModel         = new PatientModel();
@@ -53,18 +59,27 @@ class PatientController extends BaseController
         $this->assessmentModel      = new PatientAssessmentModel();
         $this->evolutionModel       = new SessionEvolutionModel();
         $this->milestoneModel       = new PatientMilestoneModel();
-        $this->postModel            = new PatientPostModel();
+        $this->postModel               = new PatientPostModel();
+        $this->patientProfessionalModel = new PatientProfessionalModel();
+        $this->userModel               = new UserModel();
     }
 
     /**
      * Lista os pacientes do tenant com busca e paginacao.
      */
-    public function index(): string
+    public function index(): string|RedirectResponse
     {
-        $search       = trim((string) $this->request->getGet('search'));
-        $showInactive = (string) $this->request->getGet('show_inactive') === '1';
+        $scope = $this->patientViewScope();
 
-        $patients = $this->patientModel->paginateWithCatalogs($search, $showInactive);
+        if ($scope === 'none') {
+            return redirect()->to('/dashboard')->with('error', 'Acesso negado. Você não tem permissão para visualizar pacientes.');
+        }
+
+        $search         = trim((string) $this->request->getGet('search'));
+        $showInactive   = (string) $this->request->getGet('show_inactive') === '1';
+        $professionalId = $scope === 'own' ? (int) session('user_id') : null;
+
+        $patients = $this->patientModel->paginateWithCatalogs($search, $showInactive, $professionalId);
 
         return view('App\Modules\Patients\Views\index', [
             'title'        => 'Pacientes',
@@ -74,6 +89,24 @@ class PatientController extends BaseController
             'search'       => $search,
             'showInactive' => $showInactive,
         ]);
+    }
+
+    /**
+     * Escopo de visualizacao de pacientes do usuario logado.
+     *
+     * @return 'any'|'own'|'none'
+     */
+    private function patientViewScope(): string
+    {
+        if (can('patients.view.any')) {
+            return 'any';
+        }
+
+        if (can('patients.view.own')) {
+            return 'own';
+        }
+
+        return 'none';
     }
 
     /**
@@ -91,7 +124,15 @@ class PatientController extends BaseController
                 ->setJSON(['success' => false, 'message' => 'Informe ao menos 2 caracteres para buscar.']);
         }
 
-        $patients = $this->patientModel->quickSearch($q, 8);
+        $scope = $this->patientViewScope();
+
+        if ($scope === 'none') {
+            return $this->response->setJSON(['success' => true, 'results' => []]);
+        }
+
+        $professionalId = $scope === 'own' ? (int) session('user_id') : null;
+
+        $patients = $this->patientModel->quickSearch($q, 8, $professionalId);
 
         $patientIds       = array_map(static fn (array $p): int => (int) $p['id'], $patients);
         $nextAppointments = $patientIds === [] ? [] : $this->appointmentModel->nextAppointmentIdForPatients($patientIds);
@@ -137,12 +178,15 @@ class PatientController extends BaseController
         }
 
         return view('App\Modules\Patients\Views\form', [
-            'title'            => 'Novo Paciente',
-            'patient'          => null,
-            'guardians'        => $guardians,
-            'units'            => $this->unitModel->orderBy('name', 'ASC')->findAll(),
-            'healthInsurances' => $this->healthInsuranceModel->orderBy('name', 'ASC')->findAll(),
-            'evolutions'       => [],
+            'title'                    => 'Novo Paciente',
+            'patient'                  => null,
+            'guardians'                => $guardians,
+            'units'                    => $this->unitModel->orderBy('name', 'ASC')->findAll(),
+            'healthInsurances'         => $this->healthInsuranceModel->orderBy('name', 'ASC')->findAll(),
+            'evolutions'               => [],
+            'professionals'            => $this->userModel->professionals(),
+            'selectedProfessionalIds'  => $this->professionalIdsFromOldInput(),
+            'primaryProfessionalId'    => $this->primaryProfessionalIdFromOldInput(),
         ]);
     }
     /**
@@ -171,6 +215,7 @@ class PatientController extends BaseController
         }
 
         $this->saveGuardians((int) $patientId, $this->request->getPost('guardians') ?? []);
+        $this->saveProfessionals((int) $patientId);
 
         // Automacao: cria o marco inicial da jornada do paciente.
         if ($this->milestoneModel->insert([
@@ -196,6 +241,10 @@ class PatientController extends BaseController
             return redirect()->to(site_url('patients'))->with('error', 'Paciente nao encontrado.');
         }
 
+        if (! can_own('patients.view', (int) $id)) {
+            return redirect()->to(site_url('patients'))->with('error', 'Acesso negado. Você não tem permissão para visualizar este paciente.');
+        }
+
         $guardians = $this->guardiansFromOldInput();
         if ($guardians === []) {
             $guardians = $this->guardiansFromDatabase((int) $id);
@@ -214,9 +263,12 @@ class PatientController extends BaseController
             'posts'            => $this->postModel->forPatient((int) $id),
             'milestones'       => $this->milestoneModel->forPatient((int) $id),
             'assessments'      => $this->assessmentModel->forPatient((int) $id),
-            'protocols'        => $this->protocolModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll(),
-            'postTypes'        => PatientPostModel::POST_TYPES,
-            'milestoneIcons'   => PatientMilestoneModel::MILESTONE_ICONS,
+            'protocols'               => $this->protocolModel->where('is_active', 1)->orderBy('name', 'ASC')->findAll(),
+            'postTypes'               => PatientPostModel::POST_TYPES,
+            'milestoneIcons'          => PatientMilestoneModel::MILESTONE_ICONS,
+            'professionals'           => $this->userModel->professionals(),
+            'selectedProfessionalIds' => $this->professionalIdsForEdit((int) $id),
+            'primaryProfessionalId'   => $this->primaryProfessionalIdForEdit((int) $id),
         ]);
     }
 
@@ -229,6 +281,10 @@ class PatientController extends BaseController
 
         if ($patient === null) {
             return redirect()->to(site_url('patients'))->with('error', 'Paciente nao encontrado.');
+        }
+
+        if (! can_own('patients.edit', (int) $id)) {
+            return redirect()->to(site_url('patients'))->with('error', 'Acesso negado. Você não tem permissão para editar este paciente.');
         }
 
         $data = $this->patientDataFromRequest();
@@ -247,6 +303,7 @@ class PatientController extends BaseController
         }
 
         $this->saveGuardians((int) $id, $this->request->getPost('guardians') ?? []);
+        $this->saveProfessionals((int) $id);
 
         return redirect()->to(site_url('patients'))->with('success', 'Paciente atualizado com sucesso.');
     }
@@ -262,6 +319,12 @@ class PatientController extends BaseController
             return $this->response
                 ->setJSON(['success' => false, 'message' => 'Paciente nao encontrado.', 'csrf_hash' => csrf_hash()])
                 ->setStatusCode(404);
+        }
+
+        if (! can_own('patients.deactivate', (int) $id)) {
+            return $this->response
+                ->setJSON(['success' => false, 'message' => 'Acesso negado. Você não tem permissão para alterar este paciente.', 'csrf_hash' => csrf_hash()])
+                ->setStatusCode(403);
         }
 
         $newStatus = (int) ($patient['is_active'] ?? 0) === 1 ? 0 : 1;
@@ -435,6 +498,93 @@ class PatientController extends BaseController
             ->whereNotIn('guardian_id', $existingIds)
             ->delete();
     }
+    /**
+     * Persiste os profissionais vinculados ao paciente.
+     */
+    private function saveProfessionals(int $patientId): void
+    {
+        $tenantId = is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
+
+        $this->patientProfessionalModel->syncProfessionals(
+            $patientId,
+            $tenantId,
+            $this->professionalIdsFromRequest(),
+            $this->primaryProfessionalIdFromRequest()
+        );
+    }
+
+    /**
+     * Ids de profissionais selecionados no formulario atual.
+     *
+     * @return list<int>
+     */
+    private function professionalIdsFromRequest(): array
+    {
+        return $this->normalizeProfessionalIds($this->request->getPost('professional_ids'));
+    }
+
+    /**
+     * Ids de profissionais vindos do input anterior (validacao que falhou).
+     *
+     * @return list<int>
+     */
+    private function professionalIdsFromOldInput(): array
+    {
+        return $this->normalizeProfessionalIds(old('professional_ids'));
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function normalizeProfessionalIds(mixed $ids): array
+    {
+        if (! is_array($ids)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
+    }
+
+    private function primaryProfessionalIdFromRequest(): ?int
+    {
+        return $this->normalizePrimaryProfessionalId($this->request->getPost('primary_professional_id'));
+    }
+
+    private function primaryProfessionalIdFromOldInput(): ?int
+    {
+        return $this->normalizePrimaryProfessionalId(old('primary_professional_id'));
+    }
+
+    private function normalizePrimaryProfessionalId(mixed $id): ?int
+    {
+        if ($id === null || $id === '') {
+            return null;
+        }
+
+        return (int) $id > 0 ? (int) $id : null;
+    }
+
+    /**
+     * Profissionais selecionados para exibicao no formulario de edicao.
+     *
+     * @return list<int>
+     */
+    private function professionalIdsForEdit(int $patientId): array
+    {
+        $ids = $this->professionalIdsFromOldInput();
+
+        return $ids !== [] ? $ids : $this->patientProfessionalModel->professionalIdsForPatient($patientId);
+    }
+
+    private function primaryProfessionalIdForEdit(int $patientId): ?int
+    {
+        if (old('primary_professional_id') !== null) {
+            return $this->primaryProfessionalIdFromOldInput();
+        }
+
+        return $this->patientProfessionalModel->primaryProfessionalIdForPatient($patientId);
+    }
+
     /**
      * Reconstroi a lista de responsaveis a partir do input anterior
      * (usado quando a validacao falha).

@@ -15,6 +15,10 @@ $postTypes      = $postTypes ?? [];
 $milestoneIcons = $milestoneIcons ?? [];
 $assessments    = $assessments ?? [];
 $protocols      = $protocols ?? [];
+
+$professionals           = $professionals ?? [];
+$selectedProfessionalIds = $selectedProfessionalIds ?? [];
+$primaryProfessionalId   = $primaryProfessionalId ?? null;
 ?>
 
 <style>[x-cloak]{display:none!important}</style>
@@ -136,6 +140,36 @@ $protocols      = $protocols ?? [];
                     <div class="sm:col-span-2">
                         <label for="allergies" class="mb-1 block text-sm font-medium text-gray-700">Alergias</label>
                         <textarea id="allergies" name="allergies" rows="3" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"><?= esc(old('allergies', $p['allergies'] ?? '')) ?></textarea>
+                    </div>
+                </div>
+
+                <div class="mt-6 border-t border-gray-200 pt-5">
+                    <h3 class="mb-1 text-sm font-semibold text-gray-700">Profissionais vinculados</h3>
+                    <p class="mb-3 text-xs text-gray-500">Selecione os profissionais que atendem este paciente.</p>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <span class="mb-2 block text-sm font-medium text-gray-700">Profissionais</span>
+                            <div class="space-y-2 rounded-lg border border-gray-300 bg-white p-3">
+                                <?php if ($professionals === []): ?>
+                                    <p class="text-xs text-gray-500">Nenhum profissional cadastrado.</p>
+                                <?php endif; ?>
+                                <?php foreach ($professionals as $professional): ?>
+                                    <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                                        <input type="checkbox" name="professional_ids[]" value="<?= (int) $professional['id'] ?>" <?= in_array((int) $professional['id'], $selectedProfessionalIds, true) ? 'checked' : '' ?> class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                        <span><?= esc($professional['name']) ?></span>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="primary_professional_id" class="mb-1 block text-sm font-medium text-gray-700">Profissional responsável principal</label>
+                            <select id="primary_professional_id" name="primary_professional_id" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                                <option value="">Nenhum</option>
+                                <?php foreach ($professionals as $professional): ?>
+                                    <option value="<?= (int) $professional['id'] ?>" <?= $primaryProfessionalId === (int) $professional['id'] ? 'selected' : '' ?>><?= esc($professional['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
