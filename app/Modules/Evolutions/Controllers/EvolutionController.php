@@ -8,6 +8,7 @@ use App\Modules\Core\Models\NoteTemplateModel;
 use App\Modules\Core\Models\UserModel;
 use App\Modules\Evolutions\Models\SessionEvolutionModel;
 use App\Modules\Patients\Models\PatientModel;
+use App\Modules\Patients\Models\PatientProfessionalModel;
 use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
 
@@ -19,6 +20,8 @@ class EvolutionController extends BaseController
 
     protected PatientModel $patientModel;
 
+    protected PatientProfessionalModel $patientProfessionalModel;
+
     protected UserModel $userModel;
 
     protected NoteTemplateModel $noteTemplateModel;
@@ -28,6 +31,7 @@ class EvolutionController extends BaseController
         $this->evolutionModel    = new SessionEvolutionModel();
         $this->appointmentModel  = new AppointmentModel();
         $this->patientModel      = new PatientModel();
+        $this->patientProfessionalModel = new PatientProfessionalModel();
         $this->userModel         = new UserModel();
         $this->noteTemplateModel = new NoteTemplateModel();
     }
@@ -117,6 +121,9 @@ class EvolutionController extends BaseController
         // Regra de negocio: ao registrar a evolucao, a sessao foi realizada.
         $this->appointmentModel->update($appointmentId, ['status' => 'realizado']);
 
+        // Auto-link: vincula o profissional do agendamento ao paciente.
+        $this->autoLinkProfessional($patientId, $professionalId);
+
         return $this->response->setJSON([
             'success'      => true,
             'message'      => 'Evolucao registrada com sucesso.',
@@ -163,6 +170,22 @@ class EvolutionController extends BaseController
         }
 
         return can_own('patients.view', (int) ($appointment['patient_id'] ?? 0));
+    }
+
+    /**
+     * Auto-link: vincula o profissional do agendamento ao paciente.
+     */
+    private function autoLinkProfessional(int $patientId, int $professionalId): void
+    {
+        if ($professionalId <= 0) {
+            return;
+        }
+
+        $tenantId = is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
+
+        if (! $this->patientProfessionalModel->linkProfessional($patientId, $professionalId, $tenantId)) {
+            log_message('error', 'Auto-link de evolução falhou para paciente ' . $patientId . ' e profissional ' . $professionalId . '.');
+        }
     }
 
     /**

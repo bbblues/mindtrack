@@ -24,6 +24,13 @@ if (! function_exists('can_own')) {
     }
 }
 
+if (! function_exists('can_own_primary')) {
+    function can_own_primary(string $basePermission, int $patientId): bool
+    {
+        return service('authorization')->canOwnPrimary($basePermission, $patientId);
+    }
+}
+
 if (! function_exists('can_access_appointment')) {
     function can_access_appointment(string $basePermission, array $appointment): bool
     {

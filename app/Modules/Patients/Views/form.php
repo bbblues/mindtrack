@@ -145,10 +145,10 @@ $primaryProfessionalId   = $primaryProfessionalId ?? null;
 
                 <div class="mt-6 border-t border-gray-200 pt-5">
                     <h3 class="mb-1 text-sm font-semibold text-gray-700">Profissionais vinculados</h3>
-                    <p class="mb-3 text-xs text-gray-500">Selecione os profissionais que atendem este paciente.</p>
+                    <p class="mb-3 text-xs text-gray-500">Selecione o responsável principal e os assistentes deste paciente.</p>
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
-                            <span class="mb-2 block text-sm font-medium text-gray-700">Profissionais</span>
+                            <span class="mb-2 block text-sm font-medium text-gray-700">Assistentes</span>
                             <div class="space-y-2 rounded-lg border border-gray-300 bg-white p-3">
                                 <?php if ($professionals === []): ?>
                                     <p class="text-xs text-gray-500">Nenhum profissional cadastrado.</p>
@@ -291,7 +291,9 @@ $primaryProfessionalId   = $primaryProfessionalId ?? null;
         <div class="flex border-b border-gray-200">
             <button type="button" @click="tab = 'mural'" :class="tab === 'mural' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="border-b-2 px-4 py-3 text-sm font-medium">Mural</button>
             <button type="button" @click="tab = 'jornada'" :class="tab === 'jornada' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="border-b-2 px-4 py-3 text-sm font-medium">Jornada</button>
-            <button type="button" @click="tab = 'avaliacoes'" :class="tab === 'avaliacoes' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="border-b-2 px-4 py-3 text-sm font-medium">Avaliações</button>
+            <?php if ($canManageAssessments): ?>
+                <button type="button" @click="tab = 'avaliacoes'" :class="tab === 'avaliacoes' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'" class="border-b-2 px-4 py-3 text-sm font-medium">Avaliações</button>
+            <?php endif; ?>
         </div>
 
         <div class="p-6">
@@ -305,11 +307,13 @@ $primaryProfessionalId   = $primaryProfessionalId ?? null;
                 'milestones'     => $milestones,
                 'milestoneIcons' => $milestoneIcons,
             ]) ?>
-            <?= view('App\Modules\Patients\Views\avaliacoes', [
-                'patient'     => $patient,
-                'assessments' => $assessments,
-                'protocols'   => $protocols,
-            ]) ?>
+            <?php if ($canManageAssessments): ?>
+                <?= view('App\Modules\Patients\Views\avaliacoes', [
+                    'patient'     => $patient,
+                    'assessments' => $assessments,
+                    'protocols'   => $protocols,
+                ]) ?>
+            <?php endif; ?>
         </div>
     </div>
     <?php endif; ?>
@@ -399,8 +403,10 @@ document.addEventListener('DOMContentLoaded', () => {
 <?php if ($isEdit): ?>
 <script>
 function patientFeed() {
-    const initialTab = ['mural', 'jornada', 'avaliacoes'].includes(new URLSearchParams(window.location.search).get('tab'))
-        ? new URLSearchParams(window.location.search).get('tab')
+    const requestedTab = new URLSearchParams(window.location.search).get('tab');
+    const canManageAssessments = <?= json_encode($canManageAssessments) ?>;
+    const initialTab = (['mural', 'jornada'].includes(requestedTab) || (canManageAssessments && requestedTab === 'avaliacoes'))
+        ? requestedTab
         : 'mural';
 
     return {

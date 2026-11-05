@@ -75,9 +75,12 @@ class PatientController extends BaseController
             return redirect()->to('/dashboard')->with('error', 'Acesso negado. Você não tem permissão para visualizar pacientes.');
         }
 
+        $canViewAll = can('patients.view.any');
+        $viewAll    = $canViewAll && $this->request->getGet('view') === 'all';
+
         $search         = trim((string) $this->request->getGet('search'));
         $showInactive   = (string) $this->request->getGet('show_inactive') === '1';
-        $professionalId = $scope === 'own' ? (int) session('user_id') : null;
+        $professionalId = $viewAll ? null : (int) session('user_id');
 
         $patients = $this->patientModel->paginateWithCatalogs($search, $showInactive, $professionalId);
 
@@ -88,6 +91,8 @@ class PatientController extends BaseController
             'pager'        => $this->patientModel->pager,
             'search'       => $search,
             'showInactive' => $showInactive,
+            'canViewAll'   => $canViewAll,
+            'viewAll'      => $viewAll,
         ]);
     }
 
@@ -152,7 +157,7 @@ class PatientController extends BaseController
                 'is_active'           => (int) ($patient['is_active'] ?? 1),
                 'unit_name'           => (string) ($patient['unit_name'] ?? ''),
                 'next_appointment_id' => $nextAppointmentId,
-                'profile_url'         => site_url('patients/edit/' . $patientId),
+                'profile_url'         => site_url('patients/show/' . $patientId),
                 'assessment_url'      => site_url('patients/edit/' . $patientId . '?tab=avaliacoes'),
                 'agenda_url'          => site_url('agenda?patient_id=' . $patientId),
                 'evolution_url'       => $nextAppointmentId !== null
@@ -269,6 +274,43 @@ class PatientController extends BaseController
             'professionals'           => $this->userModel->professionals(),
             'selectedProfessionalIds' => $this->professionalIdsForEdit((int) $id),
             'primaryProfessionalId'   => $this->primaryProfessionalIdForEdit((int) $id),
+            'canManageAssessments'    => can_own_primary('assessments.edit', (int) $id) || can_own_primary('assessments.finalize', (int) $id),
+        ]);
+    }
+
+    /**
+     * Exibe o perfil do paciente em modo somente leitura.
+     */
+    public function show($id = null): string|RedirectResponse
+    {
+        $patient = $this->patientModel->find((int) $id);
+
+        if ($patient === null) {
+            return redirect()->to(site_url('patients'))->with('error', 'Paciente nao encontrado.');
+        }
+
+        if (! can_own('patients.view', (int) $id)) {
+            return redirect()->to(site_url('patients'))->with('error', 'Acesso negado. Você não tem permissão para visualizar este paciente.');
+        }
+
+        $unit            = $this->unitModel->find((int) ($patient['unit_id'] ?? 0));
+        $healthInsurance = $this->healthInsuranceModel->find((int) ($patient['health_insurance_id'] ?? 0));
+
+        return view('App\Modules\Patients\Views\show', [
+            'title'                 => 'Perfil do Paciente',
+            'patient'               => $patient,
+            'unitName'              => $unit['name'] ?? null,
+            'insuranceName'         => $healthInsurance['name'] ?? null,
+            'guardians'             => $this->guardiansFromDatabase((int) $id),
+            'professionals'         => $this->userModel->professionals(),
+            'professionalIds'       => $this->patientProfessionalModel->professionalIdsForPatient((int) $id),
+            'primaryProfessionalId' => $this->patientProfessionalModel->primaryProfessionalIdForPatient((int) $id),
+            'posts'                 => $this->postModel->forPatient((int) $id),
+            'milestones'            => $this->milestoneModel->forPatient((int) $id),
+            'assessments'           => $this->assessmentModel->forPatient((int) $id),
+            'postTypes'             => PatientPostModel::POST_TYPES,
+            'canEdit'               => can_own('patients.edit', (int) $id),
+            'canManageAssessments'  => can_own_primary('assessments.edit', (int) $id) || can_own_primary('assessments.finalize', (int) $id),
         ]);
     }
 

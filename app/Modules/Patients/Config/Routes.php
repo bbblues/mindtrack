@@ -14,6 +14,7 @@ $routes->group('patients', ['filter' => 'auth'], static function ($routes) {
     $routes->get('search', [PatientController::class, 'search'], ['as' => 'patients.search']);
     $routes->get('create', [PatientController::class, 'create'], ['as' => 'patients.create']);
     $routes->post('/', [PatientController::class, 'store'], ['as' => 'patients.store']);
+    $routes->get('show/(:num)', [PatientController::class, 'show'], ['as' => 'patients.show']);
     $routes->get('edit/(:num)', [PatientController::class, 'edit'], ['as' => 'patients.edit']);
     $routes->post('update/(:num)', [PatientController::class, 'update'], ['as' => 'patients.update']);
     $routes->post('toggle-status/(:num)', [PatientController::class, 'toggleStatus'], ['as' => 'patients.toggleStatus', 'filter' => 'permission:patients.deactivate.any,patients.deactivate.own']);

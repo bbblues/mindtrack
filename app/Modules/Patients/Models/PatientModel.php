@@ -90,6 +90,12 @@ class PatientModel extends BaseModel
      * Lista os pacientes paginados incluindo o nome da unidade e do convenio
      * (JOIN nos catalogos) para exibicao na tabela.
      *
+     * @param int|null $professionalId Quando null, lista TODOS os pacientes do
+     *                                 tenant. Quando informado, filtra apenas os
+     *                                 pacientes vinculados a esse profissional
+     *                                 (modo "Meus Pacientes") via JOIN simples,
+     *                                 sem query adicional.
+     *
      * @return array<int, array<string, mixed>>
      */
     public function paginateWithCatalogs(?string $search = null, bool $showInactive = false, ?int $professionalId = null): array

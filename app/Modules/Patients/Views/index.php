@@ -23,6 +23,24 @@ $formatDate = static function (?string $date): string {
 
     return $timestamp === false ? $date : date('d/m/Y', $timestamp);
 };
+
+$toggleViewUrl = static function (bool $toAll) use ($search, $showInactive): string {
+    $params = [];
+
+    if ($search !== '') {
+        $params['search'] = $search;
+    }
+
+    if ($showInactive) {
+        $params['show_inactive'] = '1';
+    }
+
+    if ($toAll) {
+        $params['view'] = 'all';
+    }
+
+    return site_url('patients') . ($params !== [] ? '?' . http_build_query($params) : '');
+};
 ?>
 
 <style>[x-cloak]{display:none!important}</style>
@@ -48,6 +66,27 @@ $formatDate = static function (?string $date): string {
     <?php if (session('error')): ?>
         <div class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><?= esc(session('error')) ?></div>
     <?php endif; ?>
+
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        <div class="flex items-center gap-2 text-sm">
+            <span class="font-medium text-gray-700">Visão:</span>
+            <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold <?= $viewAll ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700' ?>">
+                <?= $viewAll ? 'Todos os Pacientes' : 'Meus Pacientes' ?>
+            </span>
+        </div>
+
+        <?php if ($canViewAll): ?>
+            <?php if ($viewAll): ?>
+                <a href="<?= esc($toggleViewUrl(false), 'attr') ?>" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+                    Meus Pacientes
+                </a>
+            <?php else: ?>
+                <a href="<?= esc($toggleViewUrl(true), 'attr') ?>" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+                    Ver Todos os Pacientes
+                </a>
+            <?php endif; ?>
+        <?php endif; ?>
+    </div>
 
     <form method="get" action="<?= site_url('patients') ?>" class="flex flex-wrap items-center gap-2">
         <input
@@ -81,9 +120,14 @@ $formatDate = static function (?string $date): string {
                         <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                 </div>
-                <h3 class="text-lg font-semibold text-gray-800">Nenhum paciente encontrado</h3>
-                <p class="mt-1 text-sm text-gray-500">Comece cadastrando o primeiro paciente da sua clinica.</p>
-                <a href="<?= site_url('patients/create') ?>" class="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">+ Adicionar Paciente</a>
+                <h3 class="text-lg font-semibold text-gray-800"><?= $viewAll ? 'Nenhum paciente encontrado' : 'Você ainda não está vinculado a pacientes' ?></h3>
+                <p class="mt-1 text-sm text-gray-500"><?= $viewAll ? 'Comece cadastrando o primeiro paciente da sua clinica.' : 'Ao registrar avaliações ou evoluções, seus pacientes aparecerão aqui automaticamente.' ?></p>
+                <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
+                    <a href="<?= site_url('patients/create') ?>" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">+ Adicionar Paciente</a>
+                    <?php if (! $viewAll && $canViewAll): ?>
+                        <a href="<?= esc($toggleViewUrl(true), 'attr') ?>" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Ver Todos os Pacientes</a>
+                    <?php endif; ?>
+                </div>
             </div>
         <?php else: ?>
             <div class="overflow-x-auto">
@@ -103,10 +147,10 @@ $formatDate = static function (?string $date): string {
                         <?php foreach ($patients as $patient): ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="px-4 py-3 font-medium text-gray-800">
-                                    <span class="inline-flex items-center gap-2">
+                                    <a href="<?= site_url('patients/show/' . (int) $patient['id']) ?>" class="inline-flex items-center gap-2 hover:text-blue-600">
                                         <span class="inline-block h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-black/10" style="background-color: <?= esc($patient['color'] ?? '#cbd5e1') ?>;"></span>
                                         <?= esc($patient['name']) ?>
-                                    </span>
+                                    </a>
                                 </td>
                                 <td class="px-4 py-3 text-gray-600"><?= esc($maskCpf($patient['cpf'] ?? null)) ?></td>
                                 <td class="px-4 py-3 text-gray-600"><?= esc($formatDate($patient['birth_date'] ?? null)) ?></td>
@@ -133,6 +177,7 @@ $formatDate = static function (?string $date): string {
                                         >
                                             Iniciar Avaliação
                                         </button>
+                                        <a href="<?= site_url('patients/show/' . (int) $patient['id']) ?>" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Visualizar</a>
                                         <a href="<?= site_url('patients/edit/' . (int) $patient['id']) ?>" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Editar</a>
                                     </div>
                                 </td>

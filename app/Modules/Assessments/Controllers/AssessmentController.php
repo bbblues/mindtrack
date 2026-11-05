@@ -9,6 +9,7 @@ use App\Modules\Assessments\Services\RadarChartService;
 use App\Modules\Assessments\Services\ScoreCalculatorService;
 use App\Modules\Core\Models\TenantModel;
 use App\Modules\Patients\Models\PatientModel;
+use App\Modules\Patients\Models\PatientProfessionalModel;
 use App\Modules\Protocols\Models\ProtocolItemModel;
 use App\Modules\Protocols\Models\ProtocolLevelModel;
 use App\Modules\Protocols\Models\ProtocolModel;
@@ -27,6 +28,8 @@ class AssessmentController extends BaseController
 
     protected PatientModel $patientModel;
 
+    protected PatientProfessionalModel $patientProfessionalModel;
+
     protected ProtocolModel $protocolModel;
 
     protected ProtocolLevelModel $levelModel;
@@ -44,6 +47,7 @@ class AssessmentController extends BaseController
         $this->assessmentModel     = new PatientAssessmentModel();
         $this->assessmentItemModel = new PatientAssessmentItemModel();
         $this->patientModel        = new PatientModel();
+        $this->patientProfessionalModel = new PatientProfessionalModel();
         $this->protocolModel       = new ProtocolModel();
         $this->levelModel          = new ProtocolLevelModel();
         $this->skillModel          = new ProtocolSkillModel();
@@ -78,6 +82,10 @@ class AssessmentController extends BaseController
             return redirect()->back()->with('error', 'Acesso negado. Você não tem permissão para iniciar avaliação para este paciente.');
         }
 
+        if (! can_own_primary('assessments.edit', $patientId)) {
+            return redirect()->back()->with('error', 'Apenas o responsável principal pode iniciar avaliações para este paciente.');
+        }
+
         $tenantId = is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
 
         $assessmentId = $this->assessmentModel->insert([
@@ -105,6 +113,9 @@ class AssessmentController extends BaseController
             ]);
         }
 
+        // Auto-link: vincula o profissional que salvou a avaliação ao paciente.
+        $this->autoLinkProfessional($patientId, (int) session('user_id'));
+
         return redirect()->to(site_url('assessments/show/' . $assessmentId))
             ->with('success', 'Avaliacao iniciada com sucesso.');
     }
@@ -129,6 +140,14 @@ class AssessmentController extends BaseController
 
         if (! can_own('patients.view', (int) $assessment['patient_id'])) {
             return $this->response->setStatusCode(403)->setBody('Acesso negado. Você não tem permissão para visualizar esta avaliação.');
+        }
+
+        // Avaliações em andamento são a interface de edição, restrita ao responsável
+        // principal. Assistente só acessa avaliações finalizadas (relatório).
+        if (($assessment['status'] ?? '') !== 'completed'
+            && ! can_own_primary('assessments.edit', (int) $assessment['patient_id'])) {
+            return redirect()->to(site_url('patients'))
+                ->with('error', 'Apenas o responsável principal pode abrir avaliações em andamento.');
         }
 
         $statuses = $this->statusModel
@@ -284,8 +303,8 @@ class AssessmentController extends BaseController
             return $this->jsonError(404, 'Avaliacao nao encontrada.');
         }
 
-        if (! can_own('assessments.edit', (int) $assessment['patient_id'])) {
-            return $this->jsonError(403, 'Acesso negado. Você não tem permissão para editar esta avaliação.');
+        if (! can_own_primary('assessments.edit', (int) $assessment['patient_id'])) {
+            return $this->jsonError(403, 'Acesso negado. Apenas o responsável principal pode editar esta avaliação.');
         }
 
         if (($assessment['status'] ?? '') === 'completed') {
@@ -374,8 +393,8 @@ class AssessmentController extends BaseController
             return $this->jsonError(404, 'Avaliacao nao encontrada.');
         }
 
-        if (! can_own('assessments.finalize', (int) $assessment['patient_id'])) {
-            return $this->jsonError(403, 'Acesso negado. Você não tem permissão para finalizar esta avaliação.');
+        if (! can_own_primary('assessments.finalize', (int) $assessment['patient_id'])) {
+            return $this->jsonError(403, 'Acesso negado. Apenas o responsável principal pode finalizar esta avaliação.');
         }
 
         if (($assessment['status'] ?? '') === 'completed') {
@@ -558,6 +577,22 @@ class AssessmentController extends BaseController
         $post = $this->request->getPost();
 
         return is_array($post) ? $post : [];
+    }
+
+    /**
+     * Auto-link: vincula o profissional que salvou a avaliação ao paciente.
+     */
+    private function autoLinkProfessional(int $patientId, int $professionalId): void
+    {
+        if ($professionalId <= 0) {
+            return;
+        }
+
+        $tenantId = is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
+
+        if (! $this->patientProfessionalModel->linkProfessional($patientId, $professionalId, $tenantId)) {
+            log_message('error', 'Auto-link de avaliação falhou para paciente ' . $patientId . ' e profissional ' . $professionalId . '.');
+        }
     }
 
     private function jsonError(int $status, string $message, array $errors = []): ResponseInterface

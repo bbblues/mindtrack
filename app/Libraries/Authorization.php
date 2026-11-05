@@ -79,6 +79,36 @@ class Authorization
     }
 
     /**
+     * Verifica uma permissão com escopo "any"/"own" para um paciente, mas para o
+     * escopo "own" exige que o usuário seja o RESPONSÁVEL PRINCIPAL (is_primary).
+     *
+     * Usado nas ações de gestão de avaliação (iniciar/editar/finalizar), que são
+     * restritas ao responsável principal (ou a quem tem o escopo "any").
+     */
+    public function canOwnPrimary(string $basePermission, int $patientId): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($this->can($basePermission . '.any')) {
+            return true;
+        }
+
+        if (! $this->can($basePermission . '.own')) {
+            return false;
+        }
+
+        $userId = session('user_id');
+
+        if (! is_numeric($userId)) {
+            return false;
+        }
+
+        return $this->isPrimaryProfessional($patientId, (int) $userId);
+    }
+
+    /**
      * Verifica se o usuário pode acessar um agendamento com uma permissão de
      * escopo "any"/"own". O "own" considera o profissional responsável OU o
      * vínculo do paciente em `patient_professionals`.
@@ -133,6 +163,19 @@ class Authorization
         return db_connect()->table('patient_professionals')
             ->where('patient_id', $patientId)
             ->where('user_id', $userId)
+            ->where('deleted_at', null)
+            ->countAllResults() > 0;
+    }
+
+    /**
+     * Indica se um usuário é o responsável principal (is_primary = true) do paciente.
+     */
+    public function isPrimaryProfessional(int $patientId, int $userId): bool
+    {
+        return db_connect()->table('patient_professionals')
+            ->where('patient_id', $patientId)
+            ->where('user_id', $userId)
+            ->where('is_primary', 1)
             ->where('deleted_at', null)
             ->countAllResults() > 0;
     }
