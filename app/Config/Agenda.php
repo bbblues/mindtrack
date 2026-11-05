@@ -49,7 +49,7 @@ class Agenda extends BaseConfig
 
     /**
      * Por padrão, agendamentos recorrentes ignoram silenciosamente as
-     * ocorrências que caem fora da agenda do profissional ou em feriados.
+     * ocorrências que caem fora do horário da clínica ou em feriados.
      */
     public bool $defaultIgnoreImpediments = true;
 

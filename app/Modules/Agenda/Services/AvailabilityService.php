@@ -4,66 +4,17 @@ namespace App\Modules\Agenda\Services;
 
 use App\Modules\Agenda\Models\ClinicScheduleModel;
 use App\Modules\Agenda\Models\HolidayModel;
-use App\Modules\Agenda\Models\ProfessionalScheduleModel;
 
 class AvailabilityService
 {
-    protected ProfessionalScheduleModel $scheduleModel;
-
     protected HolidayModel $holidayModel;
 
     protected ClinicScheduleModel $clinicScheduleModel;
 
-    public function __construct(?ProfessionalScheduleModel $scheduleModel = null, ?HolidayModel $holidayModel = null, ?ClinicScheduleModel $clinicScheduleModel = null)
+    public function __construct(?HolidayModel $holidayModel = null, ?ClinicScheduleModel $clinicScheduleModel = null)
     {
-        $this->scheduleModel       = $scheduleModel ?? new ProfessionalScheduleModel();
         $this->holidayModel        = $holidayModel ?? new HolidayModel();
         $this->clinicScheduleModel = $clinicScheduleModel ?? new ClinicScheduleModel();
-    }
-
-    /**
-     * Verifica se um agendamento está totalmente dentro de algum intervalo de
-     * agenda do profissional naquele dia da semana.
-     */
-    public function isWithinSchedule(int $professionalId, string $start, string $end): bool
-    {
-        $startTs = strtotime($start);
-        $endTs   = strtotime($end);
-
-        if ($startTs === false || $endTs === false) {
-            return false;
-        }
-
-        $dayOfWeek = (int) date('w', $startTs);
-        $intervals = $this->scheduleModel->forDay($professionalId, $dayOfWeek);
-
-        if ($intervals === []) {
-            return false;
-        }
-
-        $startMin = $this->toMinutes((string) date('H:i', $startTs));
-        $endMin   = $this->toMinutes((string) date('H:i', $endTs));
-
-        foreach ($intervals as $interval) {
-            $s = $this->toMinutes($interval['start_time']);
-            $e = $this->toMinutes($interval['end_time']);
-
-            // Overlap de intervalos [start, end) e [s, e).
-            if ($startMin < $e && $endMin > $s) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Indica se o profissional possui qualquer agenda própria cadastrada.
-     * Quando não possui, o profissional atende no horário da clínica.
-     */
-    public function hasOwnSchedule(int $professionalId): bool
-    {
-        return $this->scheduleModel->groupedForProfessional($professionalId) !== [];
     }
 
     /**
@@ -129,7 +80,7 @@ class AvailabilityService
      *
      * @return list<string>
      */
-    public function impediments(int $professionalId, string $start, string $end, ?int $tenantId): array
+    public function impediments(string $start, string $end, ?int $tenantId): array
     {
         $reasons = [];
 
@@ -140,11 +91,7 @@ class AvailabilityService
             $reasons[] = $prefix . ': ' . (string) ($holiday['name'] ?? '');
         }
 
-        if ($this->hasOwnSchedule($professionalId)) {
-            if (! $this->isWithinSchedule($professionalId, $start, $end)) {
-                $reasons[] = 'Fora do horário de agenda do profissional.';
-            }
-        } elseif (! $this->isWithinClinicHours($start, $end, $tenantId)) {
+        if (! $this->isWithinClinicHours($start, $end, $tenantId)) {
             $reasons[] = 'Fora do horário de funcionamento da clínica.';
         }
 
@@ -154,11 +101,12 @@ class AvailabilityService
     /**
      * Monta o mapa usado pela agenda para destacar períodos indisponíveis.
      *
-     * @param list<int> $professionalIds
+     * A disponibilidade de todos os profissionais segue o horário de
+     * funcionamento da clínica; feriados/fechamentos são destacados à parte.
      *
-     * @return array{holidays: array<string, array<string, mixed>>, schedules: array<string, array<string, list<array{0:string,1:string}>>>, clinicHours: array<string, list{0:string,1:string}>}
+     * @return array{holidays: array<string, array<string, mixed>>, clinicHours: array<string, list{0:string,1:string}>}
      */
-    public function availabilityMap(array $professionalIds, string $start, string $end, ?int $tenantId): array
+    public function availabilityMap(string $start, string $end, ?int $tenantId): array
     {
         $startDate = substr($start, 0, 10);
         $endDate   = substr($end, 0, 10);
@@ -186,38 +134,8 @@ class AvailabilityService
             }
         }
 
-        $schedules = [];
-
-        foreach ($professionalIds as $professionalId) {
-            $professionalId = (int) $professionalId;
-            $byDayOfWeek    = $this->scheduleModel->groupedForProfessional($professionalId);
-            $hasOwnSchedule = $byDayOfWeek !== [];
-            $byDate         = [];
-
-            foreach ($dates as $date) {
-                $dayOfWeek = (int) date('w', strtotime($date));
-
-                if ($hasOwnSchedule) {
-                    $intervals = $byDayOfWeek[$dayOfWeek] ?? [];
-                } else {
-                    $clinicInterval = $clinicSchedule[$dayOfWeek] ?? null;
-                    $intervals      = $clinicInterval !== null ? [$clinicInterval] : [];
-                }
-
-                if ($intervals !== []) {
-                    $byDate[$date] = array_map(
-                        static fn (array $interval): array => [$interval['start_time'], $interval['end_time']],
-                        $intervals
-                    );
-                }
-            }
-
-            $schedules[(string) $professionalId] = $byDate;
-        }
-
         return [
             'holidays'    => $holidays,
-            'schedules'   => $schedules,
             'clinicHours' => $clinicHours,
         ];
     }
