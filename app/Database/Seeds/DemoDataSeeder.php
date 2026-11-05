@@ -47,7 +47,6 @@ class DemoDataSeeder extends Seeder
         'guardians',
         'patient_guardians',
         'appointments',
-        'professional_schedules',
         'clinic_schedules',
         'protocols',
         'protocol_levels',

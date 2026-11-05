@@ -3,7 +3,6 @@
 namespace App\Modules\Agenda\Services;
 
 use App\Modules\Agenda\Models\HolidayModel;
-use App\Modules\Agenda\Models\ProfessionalScheduleModel;
 use RuntimeException;
 
 class HolidayService

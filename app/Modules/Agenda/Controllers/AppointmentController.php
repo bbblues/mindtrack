@@ -173,7 +173,6 @@ class AppointmentController extends BaseController
             $occurrences = array_values(array_filter(
                 $occurrences,
                 fn (array $occurrence): bool => $this->availabilityService->impediments(
-                    $professionalId,
                     $occurrence['start_time'],
                     $occurrence['end_time'],
                     $tenantId
@@ -181,16 +180,16 @@ class AppointmentController extends BaseController
             ));
 
             if ($occurrences === []) {
-                return $this->jsonError(422, 'Nenhuma data disponível no período informado: todas as ocorrências estão fora da agenda do profissional ou em feriados.');
+                return $this->jsonError(422, 'Nenhuma data disponível no período informado: todas as ocorrências estão fora do horário de funcionamento da clínica ou em feriados.');
             }
         } else {
-            $impediments = $this->collectImpediments($professionalId, $occurrences, $tenantId);
+            $impediments = $this->collectImpediments($occurrences, $tenantId);
 
             if (! $forceOverride && $impediments !== []) {
                 return $this->response->setStatusCode(409)->setJSON([
                     'success'    => false,
                     'impediment' => true,
-                    'message'    => 'O agendamento está fora da disponibilidade do profissional.',
+                    'message'    => 'O agendamento está fora do horário de funcionamento da clínica ou em feriado.',
                     'reasons'    => $impediments,
                     'csrf_hash'  => csrf_hash(),
                 ]);
@@ -264,15 +263,15 @@ class AppointmentController extends BaseController
     }
 
     /**
-     * Retorna feriados e intervalos de disponibilidade usados pela agenda
-     * para destacar visualmente os períodos indisponíveis de cada profissional.
+     * Retorna feriados e o horário de funcionamento da clínica usados pela
+     * agenda para destacar visualmente os períodos indisponíveis.
      */
     public function availability(): ResponseInterface
     {
         $scope = $this->agendaViewScope();
 
         if ($scope === 'none') {
-            return $this->response->setJSON(['holidays' => [], 'schedules' => [], 'clinicHours' => []]);
+            return $this->response->setJSON(['holidays' => [], 'clinicHours' => []]);
         }
 
         $start = $this->normalizeDateTime($this->request->getGet('start'));
@@ -283,14 +282,8 @@ class AppointmentController extends BaseController
             $end   = date('Y-m-d 00:00:00', strtotime('+11 days'));
         }
 
-        if ($scope === 'own') {
-            $professionalIds = [(int) session('user_id')];
-        } else {
-            $professionalIds = array_map('intval', array_column($this->userModel->evaluators(), 'id'));
-        }
-
         return $this->response->setJSON(
-            $this->availabilityService->availabilityMap($professionalIds, $start, $end, $this->currentTenantId())
+            $this->availabilityService->availabilityMap($start, $end, $this->currentTenantId())
         );
     }
 
@@ -403,13 +396,13 @@ class AppointmentController extends BaseController
         $tenantId      = is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
 
         if (! $forceOverride) {
-            $impediments = $this->availabilityService->impediments($professionalId, $startTime, $endTime, $tenantId);
+            $impediments = $this->availabilityService->impediments($startTime, $endTime, $tenantId);
 
             if ($impediments !== []) {
                 return $this->response->setStatusCode(409)->setJSON([
                     'success'    => false,
                     'impediment' => true,
-                    'message'    => 'O horário está fora da disponibilidade do profissional.',
+                    'message'    => 'O horário está fora do horário de funcionamento da clínica ou em feriado.',
                     'reasons'    => array_map(static fn (string $reason): array => [
                         'start_time' => $startTime,
                         'reason'     => $reason,
@@ -614,20 +607,19 @@ class AppointmentController extends BaseController
     }
 
     /**
-     * Junta (sem duplicar) os impedimentos (fora da agenda / feriado) de
-     * todas as ocorrencias.
+     * Junta (sem duplicar) os impedimentos (fora do horário da clínica /
+     * feriado) de todas as ocorrencias.
      *
      * @param list<array<string, mixed>> $occurrences
      *
      * @return list<array<string, mixed>>
      */
-    private function collectImpediments(int $professionalId, array $occurrences, ?int $tenantId): array
+    private function collectImpediments(array $occurrences, ?int $tenantId): array
     {
         $unique = [];
 
         foreach ($occurrences as $occurrence) {
             foreach ($this->availabilityService->impediments(
-                $professionalId,
                 $occurrence['start_time'],
                 $occurrence['end_time'],
                 $tenantId

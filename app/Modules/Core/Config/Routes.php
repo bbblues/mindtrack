@@ -2,7 +2,6 @@
 
 use App\Modules\Agenda\Controllers\ClinicScheduleController;
 use App\Modules\Agenda\Controllers\HolidayController;
-use App\Modules\Agenda\Controllers\ProfessionalScheduleController;
 use App\Modules\Core\Controllers\HealthInsuranceController;
 use App\Modules\Core\Controllers\NoteTemplateController;
 use App\Modules\Core\Controllers\ReasonController;
@@ -55,10 +54,6 @@ $routes->group('settings', ['filter' => ['auth', 'role:admin,gestor']], static f
     // Configuracoes da Agenda (duracao padrao da sessao).
     $routes->get('appointment', [SettingsController::class, 'appointment'], ['as' => 'settings.appointment.index']);
     $routes->post('appointment', [SettingsController::class, 'storeAppointment'], ['as' => 'settings.appointment.store']);
-
-    // Disponibilidade semanal dos profissionais (agenda).
-    $routes->get('professional-schedules', [ProfessionalScheduleController::class, 'index'], ['as' => 'settings.professionalSchedules.index']);
-    $routes->post('professional-schedules', [ProfessionalScheduleController::class, 'store'], ['as' => 'settings.professionalSchedules.store']);
 
     // Horario de funcionamento da clinica.
     $routes->get('clinic-schedule', [ClinicScheduleController::class, 'index'], ['as' => 'settings.clinicSchedule.index']);

@@ -10,7 +10,6 @@
 - `note_templates`: Modelos de evolução.
 - `users`: Funcionários da clínica (equipe).
 - `roles`: Cargos e permissões.
-- `professional_schedules`: Dias e horários de atendimento de cada profissional.
 - `clinic_schedules`: Dias e horários de funcionamento da clínica (um turno por dia; dias ausentes = fechado).
 - `holidays` e `cities`: Feriados nacionais (sincronizados da BrasilAPI), feriados locais/datas de fechamento e a cidade da clínica.
 

@@ -201,7 +201,7 @@
                     <div x-show="form.is_recurring" x-cloak class="sm:col-span-2">
                         <label class="flex items-start gap-2 text-sm text-gray-700">
                             <input type="checkbox" x-model="form.ignore_impediments" class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                            <span>Ignorar datas com impedimentos (fora da agenda do profissional ou feriados) ao gerar as ocorrências.</span>
+                            <span>Ignorar datas com impedimentos (fora do horário da clínica ou feriados) ao gerar as ocorrências.</span>
                         </label>
                     </div>
 
@@ -416,7 +416,6 @@ function agendaApp() {
         conflict: { open: false, conflicts: [], reasons: [], title: 'Conflito de horário', description: '' },
         pendingPayload: null,
         holidays: {},
-        schedules: {},
         clinicHours: {},
         selected: { open: false, event: null },
         moveModal: {
@@ -627,7 +626,6 @@ function agendaApp() {
 
             const data = await response.json();
             Object.assign(this.holidays, data.holidays || {});
-            this.schedules = data.schedules || {};
             Object.assign(this.clinicHours, data.clinicHours || {});
         },
         dayBusinessHours() {
@@ -728,8 +726,17 @@ function agendaApp() {
                 return;
             }
 
-            const intervals = (this.schedules[resourceId] || {})[date] || [];
-            const available = intervals.some((pair) => startMin < toMinutes(pair[1]) && endMin > toMinutes(pair[0]));
+            // A disponibilidade de todos os profissionais segue o horário de
+            // funcionamento da clínica. Dias fechados não possuem intervalo.
+            const clinic = this.clinicHours[date];
+
+            // Célula de dia inteiro (visão Semana): o fim cai na meia-noite do
+            // dia seguinte (HH:mm === "00:00"), então a comparação por horário
+            // não se aplica. Nesse caso, basta verificar se a clínica está aberta
+            // naquele dia.
+            const isFullDay = endMin <= startMin;
+            const available = clinic && (isFullDay
+                || (startMin < toMinutes(clinic[1]) && endMin > toMinutes(clinic[0])));
 
             if (!available) {
                 args.cell.properties.cssClass = 'cell-inactive';

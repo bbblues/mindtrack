@@ -129,17 +129,6 @@
             <p class="mt-1 text-sm text-gray-500">Dias e horários em que a clínica está aberta.</p>
         </a>
 
-        <!-- Disponibilidade dos Profissionais -->
-        <a href="<?= site_url('settings/professional-schedules') ?>" class="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow">
-            <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-            </div>
-            <h3 class="text-base font-semibold text-gray-800">Disponibilidade dos Profissionais</h3>
-            <p class="mt-1 text-sm text-gray-500">Dias e horários de atendimento de cada profissional.</p>
-        </a>
-
         <!-- Feriados e Cidade -->
         <a href="<?= site_url('settings/holidays') ?>" class="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow">
             <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
