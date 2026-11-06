@@ -32,16 +32,28 @@ $feedEmptyCtaLabel = $emptyCtaLabel ?? 'Ir para a Agenda';
 <?php else: ?>
     <ol class="relative space-y-6 border-l border-gray-200 pl-6">
         <?php foreach ($evolutions as $evolution): ?>
+            <?php
+            $isFinalized = ($evolution['status'] ?? '') === 'finalized';
+            $badgeClass  = $isFinalized ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700';
+            $badgeLabel  = $isFinalized ? 'Finalizado' : 'Rascunho';
+            ?>
             <li class="relative">
-                <span class="absolute -left-[31px] top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 ring-4 ring-white"></span>
+                <span class="absolute -left-[31px] top-1.5 flex h-5 w-5 items-center justify-center rounded-full <?= $isFinalized ? 'bg-green-600' : 'bg-amber-500' ?> ring-4 ring-white"></span>
 
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <p class="text-sm font-semibold text-gray-800"><?= esc($evolution['professional_name'] ?? 'Profissional') ?></p>
                         <p class="text-xs text-gray-500">Sessão em <?= esc($formatFeedDate($evolution['appointment_start_time'] ?? null)) ?></p>
                     </div>
-                    <span class="text-xs text-gray-400"><?= esc($formatFeedDate($evolution['created_at'] ?? null)) ?></span>
+                    <div class="flex items-center gap-2">
+                        <span class="rounded-full px-2 py-0.5 text-xs font-semibold <?= $badgeClass ?>"><?= esc($badgeLabel) ?></span>
+                        <span class="text-xs text-gray-400"><?= esc($formatFeedDate($evolution['created_at'] ?? null)) ?></span>
+                    </div>
                 </div>
+
+                <?php if ($isFinalized): ?>
+                    <p class="mt-1 text-xs text-green-700">Finalizada em <?= esc($formatFeedDate($evolution['finalized_at'] ?? null)) ?></p>
+                <?php endif; ?>
 
                 <p class="mt-2 whitespace-pre-line text-sm text-gray-700"><?= esc($evolution['evolution_text'] ?? '') ?></p>
             </li>

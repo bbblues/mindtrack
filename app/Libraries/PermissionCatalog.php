@@ -72,6 +72,7 @@ class PermissionCatalog
             'admin'         => $all,
             'gestor'        => array_values(array_diff($all, ['settings.manage_roles'])),
             'profissional'  => [
+                'patients.view.any',
                 'patients.view.own',
                 'patients.edit.own',
                 'patients.deactivate.own',

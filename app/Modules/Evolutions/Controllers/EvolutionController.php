@@ -38,6 +38,10 @@ class EvolutionController extends BaseController
 
     /**
      * Exibe a tela para registrar a evolucao de um agendamento.
+     *
+     * Caso ja exista evolucao para o agendamento (rascunho ou finalizada),
+     * ela e carregada para permitir retomar a edicao ou exibir em modo
+     * somente leitura.
      */
     public function create($appointmentId = null): string|RedirectResponse|ResponseInterface
     {
@@ -54,26 +58,42 @@ class EvolutionController extends BaseController
         $patient      = $this->patientModel->find((int) ($appointment['patient_id'] ?? 0));
         $professional = $this->userModel->find((int) ($appointment['professional_id'] ?? 0));
 
+        $evolution = $this->evolutionModel->forAppointment((int) $appointmentId);
+
+        if ($evolution !== null) {
+            $evolution = $this->evolutionModel->maskConfidentialText($evolution);
+        }
+
+        $finalizedByName = null;
+        if ($evolution !== null && is_numeric($evolution['finalized_by'] ?? null)) {
+            $finalizer = $this->userModel->find((int) $evolution['finalized_by']);
+            $finalizedByName = $finalizer['name'] ?? null;
+        }
+
         return view('App\Modules\Evolutions\Views\form', [
-            'title'         => 'Registrar Evolucao',
-            'appointment'   => $appointment,
-            'patient'       => $patient,
-            'professional'  => $professional,
-            'noteTemplates' => $this->noteTemplateModel->orderBy('name', 'ASC')->findAll(),
+            'title'           => 'Registrar Evolucao',
+            'appointment'     => $appointment,
+            'patient'         => $patient,
+            'professional'    => $professional,
+            'noteTemplates'   => $this->noteTemplateModel->orderBy('name', 'ASC')->findAll(),
+            'evolution'       => $evolution,
+            'finalizedByName' => $finalizedByName,
         ]);
     }
 
     /**
-     * Salva a evolucao e marca o agendamento vinculado como 'realizado'.
+     * Cria/atualiza a evolucao de um agendamento (upsert por appointment_id).
      *
-     * O paciente e o profissional sao derivados do agendamento (fonte da
-     * verdade), nunca do payload enviado pelo cliente.
+     * Sem "finalize", salva como rascunho e NAO altera o status do
+     * agendamento. Com "finalize", torna a evolucao imutavel e marca o
+     * agendamento como 'realizado'.
      */
     public function store(): ResponseInterface
     {
-        $payload = $this->requestPayload();
-
+        $payload       = $this->requestPayload();
         $appointmentId = (int) ($payload['appointment_id'] ?? 0);
+        $finalize      = (bool) ($payload['finalize'] ?? false);
+
         if ($appointmentId <= 0) {
             return $this->jsonError(422, 'Agendamento invalido.');
         }
@@ -87,50 +107,96 @@ class EvolutionController extends BaseController
             return $this->jsonError(403, 'Acesso negado. Você não tem permissão para registrar evolução deste agendamento.');
         }
 
+        $evolution = $this->evolutionModel->forAppointment($appointmentId);
+        if ($this->evolutionModel->isFinalized($evolution)) {
+            return $this->jsonError(403, 'Esta evolução já foi finalizada e não pode ser editada.');
+        }
+
+        return $this->persistEvolution($appointment, $payload, $finalize, $evolution);
+    }
+
+    /**
+     * Edita um rascunho existente (via AJAX). Evolucoes finalizadas sao
+     * imutaveis e retornam 403.
+     */
+    public function update($id = null): ResponseInterface
+    {
+        $evolution = $this->evolutionModel->find((int) $id);
+        if ($evolution === null) {
+            return $this->jsonError(404, 'Evolução não encontrada.');
+        }
+
+        if (! $this->canAccessEvolutionAppointment([
+            'patient_id'      => $evolution['patient_id'] ?? 0,
+            'professional_id' => $evolution['professional_id'] ?? 0,
+        ])) {
+            return $this->jsonError(403, 'Acesso negado. Você não tem permissão para editar esta evolução.');
+        }
+
+        if ($this->evolutionModel->isFinalized($evolution)) {
+            return $this->jsonError(403, 'Esta evolução já foi finalizada e não pode ser editada.');
+        }
+
+        $payload       = $this->requestPayload();
         $evolutionText = trim((string) ($payload['evolution_text'] ?? ''));
         if ($evolutionText === '') {
             return $this->jsonError(422, 'O texto da evolucao e obrigatorio.');
         }
 
-        $patientId      = (int) ($appointment['patient_id'] ?? 0);
-        $professionalId = (int) ($appointment['professional_id'] ?? 0);
-
-        if ($patientId <= 0 || $professionalId <= 0) {
-            return $this->jsonError(422, 'O agendamento nao possui paciente ou profissional vinculado.');
-        }
-
-        $tenantId = is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
-
         $data = [
-            'tenant_id'       => $tenantId,
-            'appointment_id'  => $appointmentId,
-            'patient_id'      => $patientId,
-            'professional_id' => $professionalId,
+            'tenant_id'       => $evolution['tenant_id'] ?? null,
+            'appointment_id'  => $evolution['appointment_id'] ?? 0,
+            'patient_id'      => $evolution['patient_id'] ?? 0,
+            'professional_id' => $evolution['professional_id'] ?? 0,
             'evolution_text'  => $evolutionText,
+            'is_confidential' => (int) ($payload['is_confidential'] ?? ($evolution['is_confidential'] ?? 0)),
+            'status'          => 'draft',
         ];
 
         if (! $this->validateData($data, $this->evolutionModel->getValidationRules(), $this->evolutionModel->getValidationMessages())) {
             return $this->jsonError(422, 'Dados invalidos.', $this->validator->getErrors());
         }
 
-        $evolutionId = $this->evolutionModel->insert($data);
-        if ($evolutionId === false) {
+        if (! $this->evolutionModel->update((int) $evolution['id'], $data)) {
             return $this->jsonError(500, 'Falha ao salvar a evolucao.', $this->evolutionModel->errors());
         }
 
-        // Regra de negocio: ao registrar a evolucao, a sessao foi realizada.
-        $this->appointmentModel->update($appointmentId, ['status' => 'realizado']);
-
-        // Auto-link: vincula o profissional do agendamento ao paciente.
-        $this->autoLinkProfessional($patientId, $professionalId);
-
         return $this->response->setJSON([
             'success'      => true,
-            'message'      => 'Evolucao registrada com sucesso.',
-            'evolution_id' => (int) $evolutionId,
-            'patient_id'   => $patientId,
+            'status'       => 'draft',
+            'evolution_id' => (int) $evolution['id'],
             'csrf_hash'    => csrf_hash(),
         ]);
+    }
+
+    /**
+     * Finaliza uma evolucao existente (imutavel apos a finalizacao).
+     */
+    public function finalize($id = null): ResponseInterface
+    {
+        $evolution = $this->evolutionModel->find((int) $id);
+        if ($evolution === null) {
+            return $this->jsonError(404, 'Evolução não encontrada.');
+        }
+
+        $appointment = $this->appointmentModel->find((int) ($evolution['appointment_id'] ?? 0));
+        if ($appointment === null) {
+            return $this->jsonError(404, 'Agendamento não encontrado.');
+        }
+
+        if (! $this->canAccessEvolutionAppointment($appointment)) {
+            return $this->jsonError(403, 'Acesso negado. Você não tem permissão para finalizar esta evolução.');
+        }
+
+        if ($this->evolutionModel->isFinalized($evolution)) {
+            return $this->jsonError(403, 'Esta evolução já foi finalizada e não pode ser editada.');
+        }
+
+        $payload = $this->requestPayload();
+        $payload['evolution_text']  = trim((string) ($payload['evolution_text'] ?? ($evolution['evolution_text'] ?? '')));
+        $payload['is_confidential'] = $payload['is_confidential'] ?? ($evolution['is_confidential'] ?? 0);
+
+        return $this->persistEvolution($appointment, $payload, true, $evolution);
     }
 
     /**
@@ -153,6 +219,94 @@ class EvolutionController extends BaseController
             'patient'    => $patient,
             'evolutions' => $this->evolutionModel->forPatient((int) $patientId),
         ]);
+    }
+
+    /**
+     * Persiste (insere ou atualiza) a evolucao aplicando as regras de
+     * rascunho/finalizacao.
+     *
+     * @param array<string, mixed>      $appointment
+     * @param array<string, mixed>      $payload
+     * @param array<string, mixed>|null $existing
+     */
+    private function persistEvolution(array $appointment, array $payload, bool $finalize, ?array $existing): ResponseInterface
+    {
+        $evolutionText = trim((string) ($payload['evolution_text'] ?? ''));
+        if ($evolutionText === '') {
+            return $this->jsonError(422, 'O texto da evolucao e obrigatorio.');
+        }
+
+        $patientId      = (int) ($appointment['patient_id'] ?? 0);
+        $professionalId = (int) ($appointment['professional_id'] ?? 0);
+
+        if ($patientId <= 0 || $professionalId <= 0) {
+            return $this->jsonError(422, 'O agendamento nao possui paciente ou profissional vinculado.');
+        }
+
+        $tenantId = is_numeric(session('tenant_id')) ? (int) session('tenant_id') : null;
+
+        $data = [
+            'tenant_id'       => $tenantId,
+            'appointment_id'  => (int) ($appointment['id'] ?? 0),
+            'patient_id'      => $patientId,
+            'professional_id' => $professionalId,
+            'evolution_text'  => $evolutionText,
+            'is_confidential' => (int) ($payload['is_confidential'] ?? 0),
+            'status'          => $finalize ? 'finalized' : 'draft',
+        ];
+
+        $finalizedByName = null;
+
+        if ($finalize) {
+            $finalizedBy = is_numeric(session('user_id')) ? (int) session('user_id') : null;
+            $data['finalized_at'] = date('Y-m-d H:i:s');
+            $data['finalized_by'] = $finalizedBy;
+
+            if ($finalizedBy !== null) {
+                $finalizer = $this->userModel->find($finalizedBy);
+                $finalizedByName = $finalizer['name'] ?? null;
+            }
+        }
+
+        if (! $this->validateData($data, $this->evolutionModel->getValidationRules(), $this->evolutionModel->getValidationMessages())) {
+            return $this->jsonError(422, 'Dados invalidos.', $this->validator->getErrors());
+        }
+
+        if ($existing === null) {
+            $evolutionId = $this->evolutionModel->insert($data);
+            if ($evolutionId === false) {
+                return $this->jsonError(500, 'Falha ao salvar a evolucao.', $this->evolutionModel->errors());
+            }
+        } else {
+            $evolutionId = (int) $existing['id'];
+            if (! $this->evolutionModel->update($evolutionId, $data)) {
+                return $this->jsonError(500, 'Falha ao salvar a evolucao.', $this->evolutionModel->errors());
+            }
+        }
+
+        // Auto-link sempre (inclusive rascunho), para o profissional ver o
+        // paciente na listagem "Meus Pacientes".
+        $this->autoLinkProfessional($patientId, $professionalId);
+
+        // Somente a finalizacao conclui a sessao.
+        if ($finalize) {
+            $this->appointmentModel->update((int) ($appointment['id'] ?? 0), ['status' => 'realizado']);
+        }
+
+        $response = [
+            'success'      => true,
+            'status'       => $finalize ? 'finalized' : 'draft',
+            'evolution_id' => (int) $evolutionId,
+            'patient_id'   => $patientId,
+            'csrf_hash'    => csrf_hash(),
+        ];
+
+        if ($finalize) {
+            $response['finalized_at']      = $data['finalized_at'];
+            $response['finalized_by_name'] = $finalizedByName;
+        }
+
+        return $this->response->setJSON($response);
     }
 
     /**

@@ -157,28 +157,38 @@ $toggleViewUrl = static function (bool $toAll) use ($search, $showInactive): str
                                 <td class="px-4 py-3 text-gray-600"><?= esc($patient['unit_name'] ?? '—') ?></td>
                                 <td class="px-4 py-3 text-gray-600"><?= esc($patient['insurance_name'] ?? '—') ?></td>
                                 <td class="px-4 py-3">
-                                    <button
-                                        type="button"
-                                        data-toggle-status
-                                        data-patient-id="<?= (int) $patient['id'] ?>"
-                                        data-status="<?= (int) $patient['is_active'] ?>"
-                                        class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold transition <?= (int) $patient['is_active'] === 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' ?>"
-                                    >
-                                        <?= (int) $patient['is_active'] === 1 ? 'Ativo' : 'Inativo' ?>
-                                    </button>
+                                    <?php if ($patient['can_deactivate']): ?>
+                                        <button
+                                            type="button"
+                                            data-toggle-status
+                                            data-patient-id="<?= (int) $patient['id'] ?>"
+                                            data-status="<?= (int) $patient['is_active'] ?>"
+                                            class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold transition <?= (int) $patient['is_active'] === 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' ?>"
+                                        >
+                                            <?= (int) $patient['is_active'] === 1 ? 'Ativo' : 'Inativo' ?>
+                                        </button>
+                                    <?php else: ?>
+                                        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold <?= (int) $patient['is_active'] === 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' ?>">
+                                            <?= (int) $patient['is_active'] === 1 ? 'Ativo' : 'Inativo' ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right">
                                     <div class="inline-flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            data-patient-name="<?= esc((string) $patient['name'], 'attr') ?>"
-                                            @click="openModal(<?= (int) $patient['id'] ?>, $event.target.dataset.patientName)"
-                                            class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700"
-                                        >
-                                            Iniciar Avaliação
-                                        </button>
+                                        <?php if ($patient['can_assess']): ?>
+                                            <button
+                                                type="button"
+                                                data-patient-name="<?= esc((string) $patient['name'], 'attr') ?>"
+                                                @click="openModal(<?= (int) $patient['id'] ?>, $event.target.dataset.patientName)"
+                                                class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700"
+                                            >
+                                                Iniciar Avaliação
+                                            </button>
+                                        <?php endif; ?>
                                         <a href="<?= site_url('patients/show/' . (int) $patient['id']) ?>" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Visualizar</a>
-                                        <a href="<?= site_url('patients/edit/' . (int) $patient['id']) ?>" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Editar</a>
+                                        <?php if ($patient['can_edit']): ?>
+                                            <a href="<?= site_url('patients/edit/' . (int) $patient['id']) ?>" class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50">Editar</a>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>

@@ -420,6 +420,10 @@ class DemoDataSeeder extends Seeder
                 'patient_id'      => $appointment['patient_id'],
                 'professional_id' => $appointment['professional_id'],
                 'evolution_text'  => $texts[$index % count($texts)],
+                'status'          => 'finalized',
+                'finalized_at'    => date('Y-m-d H:i:s'),
+                'finalized_by'    => $appointment['professional_id'],
+                'is_confidential' => 0,
             ]);
 
             if ($id === false) {

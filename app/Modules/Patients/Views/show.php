@@ -5,6 +5,7 @@
 <?php
 $p = $patient ?? [];
 $postTypes = $postTypes ?? [];
+$evolutions = $evolutions ?? [];
 
 $maskCpf = static function (?string $cpf): string {
     if ($cpf === null || $cpf === '') {
@@ -151,6 +152,7 @@ krsort($milestonesByYear);
                 'profissionais' => 'Profissionais',
                 'mural'         => 'Mural',
                 'jornada'       => 'Jornada',
+                'historico'     => 'Histórico',
                 'avaliacoes'    => 'Avaliações',
             ];
             ?>
@@ -353,6 +355,16 @@ krsort($milestonesByYear);
                         <?php endforeach; ?>
                     </ol>
                 <?php endif; ?>
+            </div>
+            <div x-show="tab === 'historico'">
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700">Histórico de Evoluções</h3>
+                    <p class="text-xs text-gray-500">Feed cronológico das sessões registradas.</p>
+                </div>
+                <div class="mb-4 flex justify-end">
+                    <a href="<?= site_url('evolutions/' . (int) ($p['id'] ?? 0)) ?>" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Ver histórico completo</a>
+                </div>
+                <?= view('App\Modules\Evolutions\Views\_feed', ['evolutions' => $evolutions]) ?>
             </div>
             <div x-show="tab === 'avaliacoes'">
                 <div class="mb-6">

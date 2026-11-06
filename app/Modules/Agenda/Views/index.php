@@ -8,6 +8,9 @@
 .agenda-event-time{font-size:11px;line-height:1.3;opacity:.75;font-weight:normal}
 #weekView{overflow-x:hidden}
 
+/* Agendamento com evolucao finalizada (status "realizado") */
+.agenda-event-done{opacity:.6}
+
 /* Cards de agendamento: preenchidos pela cor do paciente, sem barra/borda lateral */
 .agenda-event-card.scheduler_default_event,
 .agenda-event-card.calendar_default_event{border:none!important;box-shadow:none!important}
@@ -316,7 +319,7 @@
                 </div>
                 <div class="flex justify-end gap-3 border-t border-gray-200 pt-4">
                     <button type="button" @click="selected.open = false" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">Fechar</button>
-                    <a :href="selected.event ? (evolutionCreateUrl + '/' + selected.event.id) : '#'" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">Registrar Evolução</a>
+                    <a :href="selected.event ? (evolutionCreateUrl + '/' + selected.event.id) : '#'" :class="selected.event && selected.event.status === 'realizado' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'" class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition" x-text="selected.event && selected.event.status === 'realizado' ? 'Ver Evolução' : 'Registrar Evolução'"></a>
                 </div>
             </div>
         </div>
@@ -757,15 +760,17 @@ function agendaApp() {
             const name = DayPilot.Util.escapeHtml(args.data.text || 'Paciente');
             const start = args.data.start.toString('HH:mm');
             const end = args.data.end.toString('HH:mm');
+            const done = args.data.status === 'realizado';
 
             const timeString = start + ' - ' + end;
+            const checkMark = done ? '<span style="margin-right:3px;" aria-hidden="true">✔</span>' : '';
 
             args.data.html = ''
                 + '<div style="display:flex;flex-direction:column;justify-content:center;height:100%;line-height:1.2;padding:2px 4px;overflow:hidden;">'
-                + '<div style="font-weight:bold;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + name + '</div>'
+                + '<div style="font-weight:bold;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + checkMark + name + '</div>'
                 + '<div style="font-size:10px;opacity:.85;font-weight:normal;white-space:nowrap;">' + timeString + '</div>'
                 + '</div>';
-            args.data.cssClass = 'agenda-event-card';
+            args.data.cssClass = 'agenda-event-card' + (done ? ' agenda-event-done' : '');
         },
         disposeCalendars() {
             if (dayCalendar) {
@@ -848,6 +853,7 @@ function agendaApp() {
                     id: e.data.id,
                     title: e.data.text || 'Paciente',
                     when: formatDate(e.start()) + (e.end() ? ' até ' + formatDate(e.end()) : ''),
+                    status: e.data.status || '',
                 },
             }));
         },

@@ -81,7 +81,10 @@ CRUD completo com abas (Pessoal, Clínico, Endereço, Responsáveis), soft delet
 via inativação (`patients/toggle-status`), cor automática por paciente
 (`PatientColor`, paleta de 30 cores priorizando cores ainda não usadas no
 tenant), busca global por nome/CPF e paginação de 50 registros com filtro
-"Mostrar Inativos" preservado na query string.
+"Mostrar Inativos" preservado na query string. A listagem separa "ver" de
+"editar": o profissional enxerga toda a clínica ("Ver Todos os Pacientes"),
+mas os botões "Editar"/"Ativo/Inativo" só aparecem para os pacientes vinculados
+a ele (ver 2.12).
 
 ### 2.3 Mural e Jornada do Paciente ✅
 Feed de publicações por tipo (`patient_posts`) com filtros em abas, e marcos
@@ -143,7 +146,9 @@ Cargos isolados por tenant (Admin, Gestor, Profissional, Recepção + cargos
 customizados), permissões granulares (`permissions`, `permission_role`),
 `RoleFilter` com sintaxe `role:admin,gestor`, `SuperAdminFilter` para `/tenants`,
 sidebar que respeita os cargos e perfil do usuário (`/profile`) com troca de
-dados e senha.
+dados e senha. Regra de pacientes: **Profissional vê todos os pacientes da
+clínica, mas edita apenas os vinculados; Iniciar Avaliação é restrito ao
+Responsável Principal** (ver `docs/modules/security.md`).
 
 ---
 

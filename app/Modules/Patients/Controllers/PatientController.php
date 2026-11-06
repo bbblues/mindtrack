@@ -83,6 +83,7 @@ class PatientController extends BaseController
         $professionalId = $viewAll ? null : (int) session('user_id');
 
         $patients = $this->patientModel->paginateWithCatalogs($search, $showInactive, $professionalId);
+        $patients = $this->withPatientPermissions($patients);
 
         return view('App\Modules\Patients\Views\index', [
             'title'        => 'Pacientes',
@@ -94,6 +95,68 @@ class PatientController extends BaseController
             'canViewAll'   => $canViewAll,
             'viewAll'      => $viewAll,
         ]);
+    }
+
+    /**
+     * Anexa a cada paciente as flags de permissao do usuario logado
+     * (pode editar, desativar e iniciar avaliacao), usadas para esconder
+     * acoes indevidas na listagem.
+     *
+     * @param array<int, array<string, mixed>> $patients
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function withPatientPermissions(array $patients): array
+    {
+        $canEditAny       = can('patients.edit.any');
+        $canDeactivateAny = can('patients.deactivate.any');
+        $canAssessAny     = can('assessments.edit.any');
+
+        $canEditOwn       = can('patients.edit.own');
+        $canDeactivateOwn = can('patients.deactivate.own');
+        $canAssessOwn     = can('assessments.edit.own');
+
+        $linkedIds  = [];
+        $primaryIds = [];
+
+        $userId = session('user_id');
+
+        if (is_numeric($userId) && ($canEditOwn || $canDeactivateOwn || $canAssessOwn)) {
+            $rows = $this->patientProfessionalModel
+                ->select('patient_id, is_primary')
+                ->where('user_id', (int) $userId)
+                ->where('deleted_at', null)
+                ->findAll();
+
+            foreach ($rows as $row) {
+                $patientId = (int) ($row['patient_id'] ?? 0);
+
+                if ($patientId <= 0) {
+                    continue;
+                }
+
+                $linkedIds[] = $patientId;
+
+                if ((int) ($row['is_primary'] ?? 0) === 1) {
+                    $primaryIds[] = $patientId;
+                }
+            }
+
+            $linkedIds  = array_values(array_unique($linkedIds));
+            $primaryIds = array_values(array_unique($primaryIds));
+        }
+
+        foreach ($patients as $index => $patient) {
+            $patientId = (int) ($patient['id'] ?? 0);
+            $isLinked  = in_array($patientId, $linkedIds, true);
+            $isPrimary = in_array($patientId, $primaryIds, true);
+
+            $patients[$index]['can_edit']       = $canEditAny || ($canEditOwn && $isLinked);
+            $patients[$index]['can_deactivate'] = $canDeactivateAny || ($canDeactivateOwn && $isLinked);
+            $patients[$index]['can_assess']     = $canAssessAny || ($canAssessOwn && $isPrimary);
+        }
+
+        return $patients;
     }
 
     /**
@@ -246,8 +309,8 @@ class PatientController extends BaseController
             return redirect()->to(site_url('patients'))->with('error', 'Paciente nao encontrado.');
         }
 
-        if (! can_own('patients.view', (int) $id)) {
-            return redirect()->to(site_url('patients'))->with('error', 'Acesso negado. Você não tem permissão para visualizar este paciente.');
+        if (! can_own('patients.edit', (int) $id)) {
+            return redirect()->to(site_url('patients'))->with('error', 'Acesso negado. Você não tem permissão para editar este paciente.');
         }
 
         $guardians = $this->guardiansFromOldInput();
@@ -308,6 +371,7 @@ class PatientController extends BaseController
             'posts'                 => $this->postModel->forPatient((int) $id),
             'milestones'            => $this->milestoneModel->forPatient((int) $id),
             'assessments'           => $this->assessmentModel->forPatient((int) $id),
+            'evolutions'            => $this->evolutionModel->forPatient((int) $id),
             'postTypes'             => PatientPostModel::POST_TYPES,
             'canEdit'               => can_own('patients.edit', (int) $id),
             'canManageAssessments'  => can_own_primary('assessments.edit', (int) $id) || can_own_primary('assessments.finalize', (int) $id),
