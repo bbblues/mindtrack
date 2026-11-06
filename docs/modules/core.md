@@ -1,5 +1,7 @@
 # Módulo Core (Gestão de Clientes e Acesso)
 
+> **Status:** ✅ Implementado
+
 ## Regras de Negócio
 1. O Super Admin (dono do SaaS) tem `is_super_admin = true` e `tenant_id = null`.
 2. Ao criar um novo Tenant (Clínica), o sistema deve vincular automaticamente os módulos base (`core`, `patients`, `agenda`) na tabela `module_tenant`.

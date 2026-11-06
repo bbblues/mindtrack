@@ -1,5 +1,7 @@
 # Módulo de Dashboard de Gestão
 
+> **Status:** ✅ Implementado
+
 ## Objetivo
 Exibir métricas (KPIs) e gráficos para o gestor da clínica, permitindo visualizar a saúde operacional do negócio.
 

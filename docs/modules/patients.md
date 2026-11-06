@@ -1,5 +1,7 @@
 # Módulo de Pacientes (Patients)
 
+> **Status:** ✅ Implementado
+
 ## Entidades
 - `patients`: O paciente.
 - `guardians`: Os responsáveis (Pai, Mãe, etc).

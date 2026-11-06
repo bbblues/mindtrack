@@ -1,5 +1,7 @@
 # Módulo de Protocolos (Protocols)
 
+> **Status:** ✅ Implementado (builder dinâmico)
+
 ## Entidades
 - `protocols`: O cabeçalho (ex: VB-MAPP, ABFW).
 - `protocol_levels`: Níveis (ex: Nível 1, Nível 2). Ordenáveis.

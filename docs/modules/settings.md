@@ -1,5 +1,7 @@
 # Módulo de Configurações Avançadas (Settings)
 
+> **Status:** ✅ Implementado
+
 ## Entidades Gerenciáveis
 - `units`: Unidades da clínica.
 - `specialties`: Especialidades.

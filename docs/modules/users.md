@@ -1,5 +1,7 @@
 # Módulo de Usuários e RBAC (Users)
 
+> **Status:** ✅ Implementado
+
 ## Entidades
 - `users`: Funcionários da clínica.
 - `roles`: Cargos (Admin, Gestor, Profissional, Recepção). **Agora são isolados por tenant.**

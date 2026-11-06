@@ -1,11 +1,13 @@
 # Módulo de Avaliações de Pacientes (Patient Assessments)
 
+> **Status:** ✅ Implementado
+
 ## Entidades
 - `patient_assessments`: A avaliação de um paciente X com um protocolo Y. Guarda o score total, status (Em Andamento, Finalizada), data de início/fim.
 - `patient_assessment_items`: O status atual de cada item do protocolo para aquele paciente (guarda o `status_id` escolhido, o valor numérico do status no momento e a data da alteração).
 
 ## Regras de Negócio CRÍTICAS
-1. **Vínculo:** Ao iniciar uma avaliação, o sistema copia a estrutura do protocolo ou apenas referencia? A melhor prática é referenciar o `protocol_id` na `patient_assessments` e criar os `patient_assessment_items` vazios (status_id = null) para cada `protocol_item` do protocolo.
+1. **Vínculo (decisão tomada):** Ao iniciar uma avaliação, o sistema **copia** a estrutura do protocolo — referencia o `protocol_id` na `patient_assessments` e cria um `patient_assessment_items` para cada `protocol_item` (com `status_id = null` / `score_achieved = null`) no momento da criação. Isso congela a estrutura para que alterações futuras no protocolo não afetem avaliações já em andamento.
 2. **Cálculo de Score:** O score total é a soma dos valores (`protocol_statuses.value`) dos itens respondidos. O sistema deve atualizar esse score a cada item marcado.
 3. **Interface de Execução (O "Santo Graal"):** 
    - Deve ter um Modo Visualização (apenas leitura, como nos prints).

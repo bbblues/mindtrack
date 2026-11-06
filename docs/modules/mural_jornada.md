@@ -1,5 +1,7 @@
 # Módulo de Mural e Jornada do Paciente
 
+> **Status:** ✅ Implementado
+
 ## Entidades
 - `patient_posts`: As publicações do Mural.
 - `patient_milestones`: Os marcos da Jornada.

@@ -1,5 +1,7 @@
 # Estrutura do Banco de Dados (Visão Macro)
 
+> **Status:** 📌 Documento de referência
+
 ## Core
 - `tenants`: Clínicas/Clientes.
 - `users`: Usuários (tenant_id, is_super_admin, is_active).

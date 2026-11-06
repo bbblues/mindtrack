@@ -1,5 +1,7 @@
 # Módulo de Evolução de Sessão (Evolutions)
 
+> **Status:** ✅ Implementado
+
 ## Entidades
 - `session_evolutions`: O registro da sessão. Vinculado a `appointment_id`, `patient_id` e `professional_id`. Contém um campo de texto (evolution_text) ou notas estruturadas.
 - `evolution_targets` (Opcional para o futuro): Para marcar as tentativas do Plano Terapêutico.

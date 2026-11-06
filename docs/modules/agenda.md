@@ -1,5 +1,7 @@
 # Módulo de Agenda (Appointments)
 
+> **Status:** ✅ Implementado (visões Dia e Semana)
+
 ## Regras de Negócio CRÍTICAS
 1. **Soft Validation (Conflito de Horário):** Se o profissional já tiver um agendamento no mesmo horário, o sistema NÃO deve bloquear o salvamento. Ele deve retornar um aviso (JSON 409) e o frontend deve exibir um modal de confirmação (force_override).
 2. **Recorrência:** Agendamentos recorrentes devem ser salvos como registros individuais no banco, compartilhando o mesmo `recurrence_group_id`.

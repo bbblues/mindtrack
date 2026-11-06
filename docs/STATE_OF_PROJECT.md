@@ -2,12 +2,8 @@
 
 > **Documento de retomada.** Gerado a partir da leitura direta do código, das
 > migrations e do banco de dados em execução (`mindtrack_db`).
-> Última verificação: **01/11/2026**.
-> Branch: `master` · último commit: `a5ac689` (`fix: corrige bug de deslocamento
-> de mes (getMonth -1) no drag-and-drop da agenda semanal`).
->
-> ⚠️ **Existe trabalho não commitado** no working tree (módulo de protocolos
-> complexos). Ver seção 3.
+> Última verificação: **06/11/2026**.
+> Branch: `master` · último commit: `b04dccf` (`feat: profissional ve todos os pacientes mas edita apenas os vinculados; testes automatizados de RBAC e documentacao de seguranca`).
 
 ---
 
@@ -150,199 +146,28 @@ dados e senha. Regra de pacientes: **Profissional vê todos os pacientes da
 clínica, mas edita apenas os vinculados; Iniciar Avaliação é restrito ao
 Responsável Principal** (ver `docs/modules/security.md`).
 
+### 2.13 Protocolos Complexos (VB-MAPP / AFLS / Comunicação / Academia) ✅
+Importação XLSX (PhpSpreadsheet) via `scripts/import_protocol.php`, com 4
+importadores, persistência idempotente (UPSERT, nunca apaga), views customizadas
+por `view_slug` + PDF e cálculo de score por item/habilidade/seção. Detalhes em
+`docs/modules/complex_protocols.md`.
+
 ---
 
 ## 3. O que está EM ANDAMENTO (incompleto)
 
-### 3.1 Módulo de Protocolos Complexos (VB-MAPP / AFLS) — 🟡 ~70%
-
-Todo o trabalho está **não commitado** (`git status`): migrations 39 e 40,
-services de importação, seeder, script CLI, arquivos XLSX e
-`docs/modules/complex_protocols.md` (vazio).
-
-**O que já foi feito (validado no banco):**
-
-| Entrega | Artefato |
-| --- | --- |
-| Migrations de schema | `2026-11-01-000039_AddComplexProtocolFields.php`, `2026-11-01-000040_AddSectionToProtocolLevels.php` |
-| Novos campos | `protocol_items.max_score` (DECIMAL 5,2), `protocol_items.metadata` (JSON), `protocols.view_slug`, `patient_assessment_items.score_achieved` (DECIMAL 5,2), `protocol_levels.section`, `patient_assessments.score` → DECIMAL(10,2) |
-| Models atualizados | `includeGlobalRows = true` em `ProtocolModel`, `ProtocolLevelModel`, `ProtocolSkillModel`, `ProtocolItemModel`, `ProtocolStatusModel` |
-| Contrato de importação | `ProtocolImporterInterface` (payload normalizado) |
-| Importadores | `VbMappImporter` (6 abas → 6 seções) e `AflsImporter` (6 abas → 6 seções, ignora "CONSOLIDADO") |
-| Persistência | `ProtocolImportWriter` (UPSERT idempotente, nunca apaga) |
-| CLI | `scripts/import_protocol.php` (`--dry-run`, `--file=`, `--protocol=`, `--tenant=`) |
-| Planilhas | `database/data/protocolos/VB-MAPP preenchimento.xlsx`, `database/data/protocolos/AFLS-2.0_2a7b346d66e24d65a19361b906c12bec.xlsx` |
-| Cálculo de score | `ScoreCalculatorService` com `max_score`, `score_achieved` e agregação `by_skill` / `by_section` |
-
-**Estado real do banco após a importação (já executada):**
-
-| Protocolo | ID | `tenant_id` | Seções | Habilidades | Itens |
-| --- | --- | --- | --- | --- | --- |
-| VB-MAPP | 4 | `NULL` (global) | 6 | 52 | 1.118 |
-| AFLS | 5 | `NULL` (global) | 6 | 65 | 1.936 |
-
-Total: **12 seções, 117 habilidades, 3.054 itens**.
-Seções gravadas — VB-MAPP: *Marcadores, Barreiras, Transição, Rastreamento Nível
-I, II e III*; AFLS: *VIDA BÁSICA, PART. COMUNITÁRIA, VIDA DOMÉSTICA, ESCOLARES,
-VOCACIONAIS, VIDA INDEPENDENTE*.
-
-**O que falta (bloqueadores):**
-
-1. **`protocol_statuses` está vazio (0 registros)** — o `ProtocolImportWriter`
-   não cria status; sem status, o select da tela de avaliação só tem
-   "Nao avaliado" e a nota (`score_achieved`) fica sempre 0, pois o endpoint
-   deriva o valor do status escolhido.
-2. **Views customizadas não existem** — `protocols.view_slug` (`vb-mapp`,
-   `afls`) não é lido em nenhum lugar do código;
-   `AssessmentController::show()` sempre renderiza
-   `App\Modules\Assessments\Views\show` (lista genérica em acordeões).
-3. **`section` não é usada na UI** — `buildLevels()` não retorna `section`, logo
-   as telas não agrupam por seção (essencial para achar a seção da planilha).
-4. **Importação sem interface** — só via CLI; não há upload/tela administrativa.
-5. **Legado conflitante** — `ComplexProtocolSeeder` ainda lê JSON (modelo
-   abandonado) e faz *hard delete* dos níveis (`clearLevels`).
-6. **`docs/modules/complex_protocols.md` está vazio** (0 bytes).
-7. **Sem testes automatizados** para importadores/writer/score (existem apenas os
-   testes de exemplo do CI4 em `tests/`).
+Nenhum módulo em andamento no momento. O módulo de protocolos complexos
+(último foco ativo) foi concluído — ver seção 2.13 e
+`docs/modules/complex_protocols.md`. Pendências remanescentes (dívida técnica)
+estão na seção 6.
 
 ---
 
 ## 4. Arquitetura de Protocolos Complexos
 
-### 4.1 Modelo de dados unificado
-
-Não existem tabelas dedicadas a VB-MAPP/AFLS. Os dois protocolos vivem nas
-mesmas tabelas dos protocolos simples — a diferença é o volume, o
-`view_slug` e os campos novos.
-
-```
-protocols                   (tenant_id NULL = protocolo global do sistema)
- ├─ id, name, description, view_slug, is_active
- └─ protocol_levels          (section = cabeçalho da planilha / área)
-     ├─ id, protocol_id, name, section, sort_order
-     └─ protocol_skills      (habilidade/objetivo do nível)
-         ├─ id, level_id, name, description, sort_order
-         └─ protocol_items   (item avaliável)
-             ├─ id, skill_id, name, description, sort_order
-             ├─ max_score    DECIMAL(5,2)  -- pontuação máxima do item
-             └─ metadata     JSON          -- origem na planilha (sheet/area/qtde/cell)
-
-protocol_statuses           (legenda de pontuação por protocolo: 0, 0.5, 1...)
- └─ id, protocol_id, name, value, color, sort_order
-
-patient_assessments         (instância da avaliação de um paciente)
- ├─ id, tenant_id, patient_id, protocol_id, status, score DECIMAL(10,2)
- └─ patient_assessment_items (cópia congelada dos itens no início da avaliação)
-     ├─ id, assessment_id, protocol_item_id
-     ├─ value_at_time  -- legado (int)
-     ├─ status_id      -- FK lógica para protocol_statuses
-     └─ score_achieved DECIMAL(5,2)  -- nota efetiva (0..max_score)
-```
-
-**Consequências de projeto:**
-
-- `patient_assessment_items` guarda `protocol_item_id` com `ON DELETE CASCADE`.
-  Por isso o writer **nunca apaga** itens (só faz upsert): apagar a estrutura
-  apagaria avaliações já feitas.
-- `value_at_time` foi mantido como fallback; `score_achieved` é a fonte de
-  verdade. `ScoreCalculatorService::resolveAchieved()` usa `score_achieved` e cai
-  para `value_at_time` quando nulo.
-- O mesmo service já calcula `by_section` (agrupando por
-  `protocol_levels.section`) — o dado está pronto para as views customizadas.
-
-### 4.2 Fluxo de importação (XLSX → banco)
-
-```
-database/data/protocolos/*.xlsx
-        │  PhpSpreadsheet\IOFactory::load()
-        ▼
-VbMappImporter / AflsImporter   (implementam ProtocolImporterInterface)
-        │  retornam payload normalizado:
-        │  ['name' => 'VB-MAPP', 'view_slug' => 'vb-mapp',
-        │   'levels' => [ ['name' => ..., 'section' => ...,
-        │                  'skills' => [ ['name' => ...,
-        │                    'items' => [ ['name' => ..., 'max_score' => 1.0,
-        │                                  'metadata' => [...]]]]]]]
-        ▼
-ProtocolImportWriter::write($payload, $dryRun, $tenantId)
-        │  transação única + UPSERT por chave natural
-        ▼
-protocols → protocol_levels → protocol_skills → protocol_items
-```
-
-**Chaves naturais do upsert (idempotência):**
-
-| Nível | Chave |
-| --- | --- |
-| Protocolo | `name` + `view_slug` |
-| Nível/Seção | `protocol_id` + `name` |
-| Habilidade | `level_id` + `name` |
-| Item | `skill_id` + `name` (truncado em 255 chars) |
-
-**Regras do contrato (`ProtocolImporterInterface`):**
-
-- `levels[].name` e `levels[].section` recebem o nome da aba/seção de origem
-  (ex.: "Marcadores", "VIDA BÁSICA").
-- Itens sem nome são contados como `items_skipped` (não geram erro).
-- `metadata` preserva a rastreabilidade (`source_file`, `sheet`, `area`/`skill`,
-  `qtde`, `milestone`, `cell`).
-- Abas auxiliares são ignoradas (`CONSOLIDADO` no AFLS).
-- Status (`protocol_statuses`) **não** são importados — devem ser criados
-  separadamente (pendência 6.1).
-
-**Como cada importador define `max_score` (comportamento atual):**
-
-| Protocolo | Origem | Regra |
-| --- | --- | --- |
-| VB-MAPP | Fixo por seção no código | Marcadores = `1.0`; Barreiras = `4.0`; Transição = `5.0`; Rastreamento Níveis I/II/III = `1.0` |
-| AFLS | Coluna **"Pontuação"** da planilha (3ª coluna do bloco da área) | Usa o valor da célula; `1.0` quando vazio/zero. Item `name` = código `"<ÁREA> <Qtde>"`, `description` = a tarefa |
-
-> ⚠️ O VB-MAPP **não** lê a coluna "Qtde" para o teto de pontuação — o valor é
-> fixo por seção. Se a planilha tiver pontuação variável por item, o importador
-> precisa ser ajustado (item da Fase 1 do roadmap).
-
-### 4.3 Pontuação
-
-`ScoreCalculatorService::calculate(int $assessmentId)` retorna:
-
-```php
-[
-  'total_score'    => float,
-  'total_possible' => float,
-  'percentage'     => float,
-  'by_skill'       => [['level','skill','score','max','percentage'], ...],
-  'by_section'     => [['section','score','max','percentage'], ...],
-]
-```
-
-`achieved` é clampado em `[0, max_score]`; `by_section` agrupa por
-`protocol_levels.section` com fallback `"Geral"` quando a seção é vazia.
-
-**Como a nota é gravada (`assessments/update-item`):** o endpoint recebe
-`status_id` e/ou `score_achieved`. O valor efetivo é
-`score_achieved` (se enviado e numérico) ou, na ausência, `status.value`.
-Validação: `0 <= score_achieved <= protocol_items.max_score`; após gravar, o
-`score` da avaliação é recalculado e persistido.
-
-### 4.4 Onde a view customizada vai entrar
-
-`AssessmentController::show()` (genérico) já monta o payload completo
-(avaliação, níveis, habilidades, itens). O ponto de extensão previsto é o
-`protocols.view_slug`:
-
-```php
-$view = match ($protocol['view_slug'] ?? null) {
-    'vb-mapp' => 'App\\Modules\\Assessments\\Views\\protocols\\vb_mapp',
-    'afls'    => 'App\\Modules\\Assessments\\Views\\protocols\\afls',
-    default   => 'App\\Modules\\Assessments\\Views\\show',
-};
-```
-
-Esse *branch* **existe** desde a Fase 2: protocolos com `view_slug = 'vb-mapp'`
-ou `'afls'` renderizam views dedicadas e recebem também os `scores` de
-`ScoreCalculatorService::calculate()`, os `levels` (agora com `section` e com o
-`sort_order` de cada item) e os `statuses`. Protocolos sem `view_slug` continuam
-na view genérica `show.php`.
+> Movida para `docs/modules/complex_protocols.md` (modelo de dados, fluxo de
+> importação XLSX → banco, chaves naturais do UPSERT, regras de `max_score`,
+> cálculo de score e views customizadas por `view_slug`).
 
 ---
 
@@ -422,12 +247,11 @@ segue valendo para a view genérica e para o fluxo manual.
 
 ### 6.2 ✅ RESOLVIDO — Views customizadas por `view_slug`
 `AssessmentController::show()` escolhe a view por `protocols.view_slug`:
-`protocols/vb_mapp.php` (matriz de marcos na seção Marcadores, matriz por passo
-nas seções Rastreamento, tabela nas Barreiras/Transição) e
-`protocols/afls.php` (tabela Qtde/Tarefa/Pontuação por área). Ambas usam abas
-Alpine por `protocol_levels.section`, `x-show` para troca sem reload, gravação
-célula a célula em `assessments/update-item` e atualização imediata do score
-total e por seção (resposta traz `score`, `total_possible`, `percentage`,
+`protocols/vb_mapp.php`, `protocols/afls.php`, `protocols/comunicacao.php` e
+`protocols/academico.php` (cada uma com seu `_panel` e PDF próprio). Todas usam
+abas Alpine por `protocol_levels.section`, `x-show` para troca sem reload,
+gravação célula a célula em `assessments/update-item` e atualização imediata do
+score total e por seção (resposta traz `score`, `total_possible`, `percentage`,
 `by_skill` e `by_section`). Protocolos sem `view_slug` seguem na view genérica.
 
 ### 6.3 ✅ RESOLVIDO — `section` exposto na UI
@@ -452,9 +276,9 @@ A migration `2026-10-31-000039_CreateClinicSettings` está **registrada na tabel
 `migrations`** mas o **arquivo não existe** no repositório. Isso quebra
 `migrate:rollback` / `migrate:refresh` em ambientes novos.
 
-### 6.7 🟠 Documentação do módulo vazia
-`docs/modules/complex_protocols.md` existe com **0 bytes**. Deve documentar o
-contrato do importador, o schema novo e o fluxo de reimportação.
+### 6.7 ✅ RESOLVIDO — Documentação do módulo
+`docs/modules/complex_protocols.md` foi preenchido com o contrato do importador,
+o schema novo, as regras de `max_score` e o fluxo de reimportação.
 
 ### 6.8 🟡 Zero testes de domínio
 `tests/` contém apenas os exemplos do framework (`ExampleDatabaseTest`,
@@ -466,12 +290,9 @@ O `--dry-run` é a única validação disponível hoje.
 `docs/DEPLOY_VPS.md` documenta `mysqldump` manual; não há cron/systemd timer nem
 script versionado de backup/restore.
 
-### 6.10 🟡 Trabalho não commitado
-Migrations 39/40, `BaseModel`, `AssessmentController`, models de protocolos,
-`composer.json`/`composer.lock` (PhpSpreadsheet), `Dockerfile`,
-`scripts/import_protocol.php`, `ComplexProtocolSeeder`, planilhas XLSX e
-`docs/modules/complex_protocols.md`. **Risco:** perda de trabalho e
-impossibilidade de reproduzir o estado por outro ambiente.
+### 6.10 ✅ RESOLVIDO — Trabalho commitado
+Todo o trabalho do módulo de protocolos complexos (importadores, views, PDF,
+script CLI, planilhas XLSX e documentação) está commitado no branch `master`.
 
 ### 6.11 🟡 Cadastros citados na documentação sem implementação
 A documentação menciona feriados (`holidays`) e lista de espera (`waiting_list`)
@@ -531,13 +352,13 @@ O formulário `protocols/create` não preenche `max_score`, `metadata` nem
 ### Depois das fases (backlog técnico)
 1. Excluir/reescrever `ComplexProtocolSeeder` (6.5).
 2. Recriar o arquivo da migration `CreateClinicSettings` (6.6).
-3. Preencher `docs/modules/complex_protocols.md` (6.7).
+3. ✅ Preencher `docs/modules/complex_protocols.md` (6.7) — concluído.
 4. Testes de `VbMappImporter`, `AflsImporter`, `ProtocolImportWriter` e
    `ScoreCalculatorService` (6.8).
 5. Tela administrativa de protocolos (upload XLSX + status) e rotas de
    edição/exclusão.
 6. Script de backup agendado na VPS (6.9).
-7. Commit do trabalho pendente (6.10).
+7. ✅ Commit do trabalho pendente (6.10) — concluído.
 
 ---
 
@@ -568,6 +389,8 @@ O formulário `protocols/create` não preenche `max_score`, `metadata` nem
 | `app/Modules/Protocols/Services/ProtocolImporterInterface.php` | Contrato do payload normalizado |
 | `app/Modules/Protocols/Services/VbMappImporter.php` | Parser do XLSX VB-MAPP (6 abas) |
 | `app/Modules/Protocols/Services/AflsImporter.php` | Parser do XLSX AFLS (6 abas) |
+| `app/Modules/Protocols/Services/ComunicacaoImporter.php` | Parser da Matriz de Comunicação (7 níveis) |
+| `app/Modules/Protocols/Services/AcademicoImporter.php` | Parser da Avaliação Global Academia do Autismo (5 áreas) |
 | `app/Modules/Protocols/Services/ProtocolImportWriter.php` | UPSERT transacional (nunca apaga) |
 | `scripts/import_protocol.php` | Entry point CLI (`--dry-run`, `--file`, `--protocol`, `--tenant`) |
 | `database/data/protocolos/*.xlsx` | Planilhas oficiais |
@@ -576,11 +399,11 @@ O formulário `protocols/create` não preenche `max_score`, `metadata` nem
 | `app/Modules/Protocols/Controllers/ProtocolController.php` | Builder dinâmico (Alpine) |
 | `app/Modules/Assessments/Controllers/AssessmentController.php` | Execução da avaliação, `buildLevels()`, AJAX, PDF |
 | `app/Modules/Assessments/Services/ScoreCalculatorService.php` | Score por item/habilidade/seção |
-| `app/Modules/Assessments/Views/show.php` | **View genérica atual** (sem branch por `view_slug`) |
+| `app/Modules/Assessments/Views/protocols/*.php` | Views customizadas por `view_slug` (vb_mapp, afls, comunicacao, academico) + PDF em `Views/pdf/` |
 | `app/Modules/Plans/Controllers/PlanController.php` | Plano terapêutico a partir da avaliação |
 | `app/Database/Migrations/2026-11-01-000039_AddComplexProtocolFields.php` | `max_score`, `metadata`, `view_slug`, `score_achieved` |
 | `app/Database/Migrations/2026-11-01-000040_AddSectionToProtocolLevels.php` | `protocol_levels.section` |
-| `docs/modules/complex_protocols.md` | **Vazio — a ser escrito** |
+| `docs/modules/complex_protocols.md` | Documentação do módulo (importação, schema, score) |
 
 ### Outros módulos
 `app/Modules/Patients/` (CRUD, mural, jornada) · `app/Modules/Agenda/`

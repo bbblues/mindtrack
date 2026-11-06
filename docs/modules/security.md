@@ -1,5 +1,7 @@
 # Segurança e Controle de Acesso (RBAC)
 
+> **Status:** ✅ Implementado
+
 ## Objetivo
 Garantir que apenas usuários com os cargos corretos acessem determinadas rotas do sistema.
 

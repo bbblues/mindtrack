@@ -1,5 +1,7 @@
 # Módulo de Plano Terapêutico (Therapeutic Plans)
 
+> **Status:** ✅ Implementado
+
 ## Entidades
 - `therapeutic_plans`: O plano de um paciente. Guarda o status (Ativo, Arquivado), data de início e fim.
 - `plan_items`: Os objetivos do plano. Podem ser vinculados a um `protocol_item_id` (vindo de uma avaliação) ou ser um texto livre (meta customizada).

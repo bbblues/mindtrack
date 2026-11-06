@@ -1,5 +1,7 @@
 # Módulo Super Admin (Gestão do SaaS)
 
+> **Status:** ✅ Implementado
+
 ## Entidades
 - `tenants`: As clínicas clientes.
 

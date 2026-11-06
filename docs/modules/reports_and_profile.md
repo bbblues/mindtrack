@@ -1,5 +1,7 @@
 # Módulo de Relatórios e Perfil
 
+> **Status:** ✅ Implementado
+
 ## 1. Relatórios em PDF (Relatórios Clínicos)
 - **Objetivo:** Permitir que o terapeuta gere um PDF com o resultado da Avaliação de um paciente ou o resumo do Plano Terapêutico.
 - **Regras de Negócio:**
